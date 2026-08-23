@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Typeface Archive — Warm Paper</title></head>
+<body>
+<script>
+fetch('Font_test.html').then(r=>r.text()).then(html=>{
+  const override=`
+<style>
+body{background:#d8d2c7!important;color:#3d3a35!important}
+.top{background:rgba(216,210,199,.96)!important;border-bottom-color:#aaa397!important}
+.intro h1,.head h2,.hero,.mid,.sub,.nums,.symbols{color:#181716!important}
+.index{border-top-color:#5b5751!important}.index a{border-bottom-color:#b8b0a4!important}
+.font{border-top-color:#6a655e!important}.head span,.micro-row .label,.meta{color:#69635c!important}
+.micro{border-top-color:#918a80!important}.micro-row{border-bottom-color:#bdb5a9!important}.glyph{border-top-color:#918a80!important}
+.en{opacity:.6!important}
+</style>`;
+  html=html.replace('</head>',override+'</head>').replace('Typeface Archive / 13','Typeface Archive / 13 — WARM PAPER');
+  document.open();document.write(html);document.close();
+});
+</script>
+</body></html>
