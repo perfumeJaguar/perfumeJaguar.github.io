@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Typeface Archive — White</title></head>
+<body>
+<script>
+fetch('Font_test.html').then(r=>r.text()).then(html=>{
+  const override=`
+<style>
+body{background:#fff!important;color:#4b4b4b!important}
+.top{background:rgba(255,255,255,.96)!important;border-bottom-color:#d7d7d7!important}
+.intro h1,.head h2,.hero,.mid,.sub,.nums,.symbols{color:#111!important}
+.index{border-top-color:#444!important}.index a{border-bottom-color:#ddd!important}
+.font{border-top-color:#555!important}.head span,.micro-row .label,.meta{color:#777!important}
+.micro{border-top-color:#aaa!important}.micro-row{border-bottom-color:#ddd!important}.glyph{border-top-color:#aaa!important}
+.en{opacity:.58!important}
+</style>`;
+  html=html.replace('</head>',override+'</head>').replace('Typeface Archive / 13','Typeface Archive / 13 — WHITE');
+  document.open();document.write(html);document.close();
+});
+</script>
+</body></html>
