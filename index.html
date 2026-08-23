@@ -3,22 +3,71 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Portfolio website">
-  <title>Portfolio</title>
+  <meta name="description" content="Portfolio of Hoyeon Choi">
+  <title>Hoyeon Choi</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="hero">
-    <div class="hero__content">
-      <p class="eyebrow">PORTFOLIO</p>
-      <h1>It works.</h1>
-      <p class="intro">This is the first page of the portfolio website.</p>
-    </div>
+  <header class="site-header">
+    <a class="site-name" href="#">Hoyeon Choi</a>
 
-    <footer>
-      <span>2026</span>
-      <span>GitHub Pages</span>
-    </footer>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="mailto:hello@example.com">Contact</a>
+    </nav>
+  </header>
+
+  <main id="work" class="work-grid">
+    <a class="project project--wide" href="#">
+      <div class="project-image ratio-landscape"><span>01</span></div>
+      <div class="project-meta">
+        <span>Project One</span>
+        <span>2026</span>
+      </div>
+    </a>
+
+    <a class="project" href="#">
+      <div class="project-image ratio-portrait"><span>02</span></div>
+      <div class="project-meta">
+        <span>Project Two</span>
+        <span>2025</span>
+      </div>
+    </a>
+
+    <a class="project" href="#">
+      <div class="project-image ratio-square"><span>03</span></div>
+      <div class="project-meta">
+        <span>Project Three</span>
+        <span>2025</span>
+      </div>
+    </a>
+
+    <a class="project project--offset" href="#">
+      <div class="project-image ratio-landscape"><span>04</span></div>
+      <div class="project-meta">
+        <span>Project Four</span>
+        <span>2024</span>
+      </div>
+    </a>
+
+    <a class="project" href="#">
+      <div class="project-image ratio-portrait"><span>05</span></div>
+      <div class="project-meta">
+        <span>Project Five</span>
+        <span>2024</span>
+      </div>
+    </a>
   </main>
+
+  <section id="about" class="about">
+    <p>Artist, musician and image-maker.</p>
+    <p>Selected works across moving image, sound, performance and photography.</p>
+  </section>
+
+  <footer class="site-footer">
+    <span>© 2026 Hoyeon Choi</span>
+    <a href="#">Back to top</a>
+  </footer>
 </body>
 </html>
