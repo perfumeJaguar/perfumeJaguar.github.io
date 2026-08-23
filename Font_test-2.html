@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Typeface Archive — Gray</title></head>
+<body>
+<script>
+fetch('Font_test.html').then(r=>r.text()).then(html=>{
+  const override=`
+<style>
+body{background:#b8b8b4!important;color:#2f2f2f!important}
+.top{background:rgba(184,184,180,.96)!important;border-bottom-color:#8f8f8b!important}
+.intro h1,.head h2,.hero,.mid,.sub,.nums,.symbols{color:#111!important}
+.index{border-top-color:#444!important}.index a{border-bottom-color:#8f8f8b!important}
+.font{border-top-color:#555!important}.head span,.micro-row .label,.meta{color:#555!important}
+.micro{border-top-color:#777!important}.micro-row{border-bottom-color:#999!important}.glyph{border-top-color:#777!important}
+.en{opacity:.62!important}
+</style>`;
+  html=html.replace('</head>',override+'</head>').replace('Typeface Archive / 13','Typeface Archive / 13 — GRAY');
+  document.open();document.write(html);document.close();
+});
+</script>
+</body></html>
