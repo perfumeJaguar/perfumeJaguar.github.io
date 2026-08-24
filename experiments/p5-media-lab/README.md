@@ -1,166 +1,156 @@
 # p5 Media Lab 01
 
-A mobile-first audiovisual test work for exploring the practical range of **p5.js + p5.sound** inside a static GitHub Pages site.
+A mobile-first browser media-art laboratory built with **p5.js / JavaScript** and hosted on GitHub Pages.
 
-This is intentionally a **media-art laboratory rather than a finished artwork**. It exposes many techniques at once so individual behaviors can later be removed, isolated, recombined, or developed into separate works.
+This is an independent experiment, not part of the portfolio site's design system. It currently lives under `perfumeJaguar.github.io/experiments/` for deployment convenience and may later move into a media-art repository.
 
-## Project boundary
+## Current baseline
 
-This is an **independent media-art project**, not part of the portfolio site's visual/design system. It is currently hosted under `perfumeJaguar.github.io/experiments/` only for convenient GitHub Pages deployment.
+Current study: **photo-only**. Video code/assets may remain in the repository, but the active build discovers still images from `assets/images/`, preloads them, and uses them as the source archive.
 
-It may later move to the `perfumeJaguar/mediaArt` repository. Until that is explicitly requested, keep it in the current location and treat this folder as a self-contained project.
+The current interaction vocabulary is deliberately small:
 
-For the authoritative current implementation state, decisions, debugging history, migration status, and next steps, read `PROJECT_STATE.md` first.
+- no touch: autonomous image composition;
+- hold: four-tone black / muted-red / white rupture plus stronger audio processing;
+- fast swipe while holding: additional recursive feedback proportional to swipe speed.
 
-## Core idea
+Audio is the user's original MP3. A native `<audio>` path provides reliable dry playback on mobile, while a parallel Web Audio layer provides interactive filtering, delay, feedback, and distortion.
 
-The project treats moving image as both an image and a control signal.
+## Where to edit first
 
-- Video / image pixels become visual material.
-- The pixel under the mouse or fingertip becomes a virtual pickup.
-- Local brightness controls audio filtering.
-- Frame-to-frame motion controls delay feedback.
-- Pointer position changes pan, playback rate, delay time, and distortion.
-- Audio amplitude / FFT bands return in the opposite direction and alter visual behavior.
-- A telemetry layer displays real internal parameters as an aesthetic terminal-like surface.
+### 1. `config.js` — start here
 
-The only audience input is **mouse or one-finger touch**.
+This is intentionally the main tuning panel written as code. It now contains detailed comments beside the important parameters.
 
-## Current status
+Useful examples:
 
-Version: `0.1.0`
+```js
+// How long each visual study remains active.
+modeDurationSec: 11,
 
-The project runs even before personal assets are added. When `assets.js` is empty it uses:
+// Random source crops can range from almost untouched to severe enlargement.
+sourceCropMinZoom: 1.0,
+sourceCropMaxZoom: 2.65,
 
-- a procedural moving-image fallback generated in p5.js;
-- two quiet p5 oscillators as a diagnostic audio source.
+// Global common destruction applied to every visual study.
+crushContrast: 1.32,
+crushPosterizeLevels: 6,
 
-This fallback is deliberate: code structure, interaction, telemetry, visual presets, pixel analysis, FFT, effects, fullscreen behavior, and mobile layout can be tested immediately.
+// Swipe must exceed this normalized speed before movement-feedback appears.
+swipeFeedbackThreshold: 0.20,
 
-As of 2026-08-25 the GitHub Pages build has been confirmed by the user to start and run after resolving a p5.sound 0.4.1 FFT-constructor incompatibility and adding local-script cache busting. See `PROJECT_STATE.md` for the exact debugging record.
-
-## Start / run
-
-The page is designed to be served over HTTP(S), including directly through GitHub Pages.
-
-Open:
-
-`/experiments/p5-media-lab/`
-
-The first `TOUCH TO START` gesture is used to:
-
-1. satisfy browser audio-autoplay restrictions;
-2. request fullscreen where supported;
-3. start the media/audio engines.
-
-If fullscreen is unavailable or rejected, the piece continues in viewport-cover mode.
-
-## Add personal media
-
-Create these folders (already represented in Git by `.gitkeep` files):
-
-```text
-assets/
-├── video/
-├── images/
-└── audio/
+// Strength range of the interactive audio layer.
+fxWetMin: 0.025,
+fxWetMax: 0.72,
 ```
 
-The first registered real-media batch currently uses these exact names:
+Change only a few values at once. This makes it much easier to hear/see what a parameter actually does.
+
+### 2. `visual-engine-v061.js` — effect implementation
+
+This is where the actual visual building blocks live: source cropping, double exposure, RGB separation, halation, shard/slice composition, luminance mosaics, common crush, touch rupture, feedback, vignette, and waveform drawing.
+
+The important architectural distinction is:
 
 ```text
-assets/video/video_720p_1.mp4 ... video_720p_6.mp4
-assets/images/image_low_1.jpg ... image_low_10.jpg
-assets/audio/audio_low1.mp3
+IMAGE POOL
+  ↓
+independent random crop PER SOURCE DRAW
+  ↓
+preset composition
+  ↓
+COMMON PHOTO_CRUSH
+  ↓
+TOUCH RUPTURE (only while pressed)
+  ↓
+mode feedback / swipe feedback when applicable
+  ↓
+vignette + waveform + telemetry
 ```
 
-The canonical list is `assets.js`. See `ASSET_GUIDE.md` for preparation guidance and `PROJECT_STATE.md` for the current batch/status.
+This means crop is not a global camera zoom. Each ingredient entering an effect can have a different crop, scale, and position.
 
-## Visual modes
+### 3. `visual-engine-v063.js` — current touch-color patch
 
-Modes cycle automatically; there are no mode-selection buttons in the artwork.
+The current muted-red rupture palette is isolated here so it can be changed without rewriting the whole visual engine.
 
-- `PICKUP` — clean moving image + audio waveform; best for inspecting image-to-audio mapping.
-- `RGB_FEEDBACK` — additive RGB separation and temporal accumulation.
-- `SLICE_SCAN` — horizontal clipped slices displaced by noise and motion, plus feedback.
-- `PIXEL_FIELD` — pixel mosaic plus a noise-driven particle field.
-- `POSTER_WAVE` — p5 built-in posterize filter plus waveform.
-- `OVERLOAD` — intentionally excessive combination of several systems for stress testing.
+The current four levels are approximately:
 
-Change the list or enabled features in `config.js`.
+```text
+black
+muted dark red
+muted red
+near-white
+```
 
-## Audio mapping
+Edit the RGB values in this file if you want the red to become browner, darker, more saturated, etc.
 
-Current mapping is intentionally obvious enough to diagnose by ear:
+### 4. `audio-engine-v050.js` / `audio-touch-v060.js`
 
-| Input | Audio parameter |
-|---|---|
-| local pixel brightness | low-pass cutoff |
-| global frame motion | delay feedback |
-| pointer X | stereo pan + delay time |
-| pointer Y | playback rate + distortion relationship |
-| press / hold | temporary intensity boost in several mappings |
+The audio architecture is split deliberately:
 
-Audio also returns values to the visual system:
+- native `<audio>` = stable audible dry source;
+- decoded PCM = analysis values and waveform;
+- Web Audio wet layer = filter / delay / feedback / distortion;
+- touch patch = stronger dry/wet reaction during press.
 
-| Audio analysis | Visual use |
-|---|---|
-| RMS | particle size / opacity / waveform strength |
-| Bass | zoom / particle spawning / feedback response |
-| Mid | available for future presets |
-| Treble | particle lift / scanline energy |
-| Waveform | drawn directly as geometry |
+This separation was kept because direct Web Audio playback previously proved less reliable on the target Android Chrome device.
 
-## Screen policy
+### 5. `telemetry.js`
 
-The moving image always uses an **object-fit: cover equivalent**. Aspect ratio is preserved, empty edges are not permitted, and cropping is expected.
+Controls the terminal-like information layer. Internal data stays readable in code, while the visible MODE / FX names can be replaced with pseudo-system names and corrupted characters for presentation.
 
-The outer canvas follows the visible browser viewport. The code listens to browser resize, orientation change, fullscreen change, and `visualViewport` resize when available.
+## Adding photographs
 
-Portrait/mobile is the design baseline. Desktop uses the same system with a wider telemetry arrangement and a somewhat larger internal processing buffer.
+Normally you do **not** need to edit a file list anymore.
 
-## Telemetry layer
+Put supported files into:
 
-Telemetry is a real instrumentation layer, not random terminal decoration.
+```text
+experiments/p5-media-lab/assets/images/
+```
 
-It can expose viewport and buffer size, FPS, source filename/type, pointer values, local RGB/luminance, global luminance/motion, audio RMS/FFT bands, effect parameters, current preset, and real state-change event history.
+Supported extensions are configured in `config.js` and currently include JPG, JPEG, PNG, WebP, GIF, and AVIF.
 
-A small motion-dependent text jitter is aesthetic, but the values themselves remain actual data.
+On page load, the browser queries GitHub's public Contents API, discovers the files in that folder, and then preloads them before `TOUCH TO START` becomes available. `assets.js` remains only as a fallback if directory discovery fails.
 
-## Fast customization
+The present implementation intentionally preloads the whole archive. This is convenient for rapid random switching but can become memory-heavy with many large images. If the archive grows far beyond the current scale, the intended next architectural change is a rolling resident cache rather than changing the visual effects themselves.
 
-Start in `config.js`.
+## Preset composition
 
-Typical edits:
+The active playlist is at the bottom of `config.js`:
 
-- slower mode changes: `app.modeDurationSec`
-- slower clip changes: `app.sourceSwitchSec`
-- disable fullscreen request: `app.requestFullscreenOnStart`
-- reduce mobile load: lower `render.maxBufferLongEdgeMobile`
-- reduce analysis load: lower `render.analysisWidthMobile`
-- disable an effect inside a preset: set its property to `false`
-- change terminal density/opacity: edit `telemetry` values
+```js
+presets: [
+  { name: "PHOTO_FEEDBACK_CROP", photoFeedback: true, feedback: true },
+  { name: "PHOTO_RAPID_CROP", photoRapidCrop: true },
+  { name: "PHOTO_RGB_TEAR", photoRgbTear: true },
+  ...
+]
+```
 
-## Why the processing buffers are smaller than the screen
+The array order is playback order. Remove an entry to skip it. Move it to reorder it. Duplicate it if you want a study to appear more frequently during testing.
 
-A phone may display over two million physical pixels per frame. Reading those pixels into JavaScript every frame is wasteful.
+The internal names are deliberately plain and descriptive even though the telemetry display disguises them. Do not make the code labels cryptic just because the artwork's visible labels are cryptic.
 
-This project separates:
+## Extensibility principles
 
-- **display canvas** — always viewport-sized;
-- **visual processing buffer** — capped long edge, then scaled to cover;
-- **analysis buffer** — only about 128–180 pixels wide.
+The project is written so the following parts can grow independently:
 
-This resembles using lower-resolution TOPs for analysis/control paths in TouchDesigner while keeping final presentation at display resolution.
+- **media discovery/loading** does not need to know how a photo will be rendered;
+- **visual source selection/cropping** is reusable across multiple effects;
+- **presets** choose combinations of effects rather than owning asset loading;
+- **interaction** exposes normalized position, pressure, and swipe speed rather than hard-coding one artwork behavior;
+- **audio analysis/output** is separate from visual rendering;
+- **telemetry presentation** is separate from the honest internal names/data;
+- **configuration** holds the most common artistic parameters so experiments do not require engine rewrites.
 
-## Known limitations
+A new effect should normally be added as a new visual function plus one config/preset switch, not by modifying the media loader. A new interaction dimension should normally be added to the interaction snapshot first, then consumed by whichever visual/audio modules need it.
 
-- Fullscreen behavior differs by mobile browser and can be exited by the user/system.
-- p5 pixel operations are not a substitute for a GPU shader pipeline at high resolutions.
-- `createVideo()` decoding behavior depends on browser codec support.
-- Aggressive audio rate changes also change pitch.
-- The simple motion detector is frame difference, not optical flow or object tracking.
-- Multiple high-resolution video decoders are deliberately avoided; only one active video is kept alive.
-- The `OVERLOAD` preset is expected to be heavier than the others, especially on old phones.
+## Current limitations
 
-For deeper architecture and edit points, read `ARCHITECTURE.md`. For continuity and current project state, read `PROJECT_STATE.md`.
+GitHub Pages is static, so directory discovery currently relies on GitHub's public API rather than a server-side filesystem scan. Large image archives can also hit mobile decoded-image memory before network bandwidth becomes the main problem. Finally, several p5/Canvas2D operations—especially blur, pixel operations, and recursive feedback—are CPU/GPU heavier than an equivalent shader implementation.
+
+If this study evolves into much denser feedback, bloom, displacement, or dozens of simultaneous layers, a later Three.js/WebGL shader version may be a better technical endpoint. The present p5 structure is still useful because the media, interaction, preset, and parameter concepts can migrate without preserving the exact renderer.
+
+For current decisions and debugging history, read `PROJECT_STATE.md` before making major structural changes.
