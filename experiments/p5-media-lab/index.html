@@ -5,25 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#000000" />
   <title>p5 Media Lab 01</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./style.css?v=20260825-1" />
 
   <!--
     Library versions are pinned deliberately so the experiment can be reproduced later.
     p5.sound is maintained separately from p5.js in the p5.js 2.x era.
+
+    Local files carry a version query on purpose. GitHub Pages and mobile browsers
+    may retain an older JavaScript asset after a deploy; changing this token forces
+    the browser/CDN to request the current file instead of reusing a stale copy.
   -->
   <script src="https://cdn.jsdelivr.net/npm/p5@2.3.1/lib/p5.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/p5.sound@0.4.1/dist/p5.sound.min.js"></script>
 
-  <script src="./assets.js"></script>
-  <script src="./config.js"></script>
-  <script src="./js/utils.js"></script>
-  <script src="./js/telemetry.js"></script>
-  <script src="./js/media-manager.js"></script>
-  <script src="./js/video-analyzer.js"></script>
-  <script src="./js/audio-engine.js"></script>
-  <script src="./js/interaction.js"></script>
-  <script src="./js/visual-engine.js"></script>
-  <script src="./sketch.js"></script>
+  <script src="./assets.js?v=20260825-1"></script>
+  <script src="./config.js?v=20260825-1"></script>
+  <script src="./js/utils.js?v=20260825-1"></script>
+  <script src="./js/telemetry.js?v=20260825-1"></script>
+  <script src="./js/media-manager.js?v=20260825-1"></script>
+  <script src="./js/video-analyzer.js?v=20260825-1"></script>
+  <script src="./js/audio-engine.js?v=20260825-1"></script>
+  <script src="./js/interaction.js?v=20260825-1"></script>
+  <script src="./js/visual-engine.js?v=20260825-1"></script>
+  <script src="./sketch.js?v=20260825-1"></script>
 </head>
 <body>
   <main id="app" aria-label="p5 Media Lab 01 interactive audiovisual experiment">
