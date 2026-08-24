@@ -8,9 +8,15 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.1.1",
+    version: "0.1.2",
     targetFps: 60,
-    requestFullscreenOnStart: true,
+
+    // Temporarily disabled in the stability baseline. The previous mobile test
+    // consistently stalled immediately after fullscreen/viewport rebuilding.
+    // Once continuous playback is confirmed, fullscreen can be reintroduced
+    // without changing the audiovisual engine itself.
+    requestFullscreenOnStart: false,
+
     preventContextMenu: true,
     modeDurationSec: 14,
     sourceSwitchSec: 9,
@@ -39,6 +45,12 @@ window.P5LAB_CONFIG = {
     autoplayAfterStart: true,
     imageCacheLimit: 6,
     preferVideo: true,
+
+    // GitHub Pages / mobile MP4 progressive loading can remain at readyState 0
+    // for large files (especially when MP4 metadata is not at the front). In the
+    // test build we fetch one whole clip to a Blob first, then decode locally.
+    useBlobVideoLoader: true,
+    videoFetchTimeoutMs: 30000,
   },
 
   interaction: {
@@ -51,6 +63,14 @@ window.P5LAB_CONFIG = {
     enabled: true,
     syntheticFallback: true,
     masterVolume: 0.72,
+
+    // Safe baseline: keep the music connected directly to the master output and
+    // run FFT/amplitude analysis from the SoundFile itself. This avoids letting
+    // one experimental effect node silence the complete graph. The effect target
+    // parameters are still calculated and shown in telemetry; the wet chain can
+    // be re-enabled after basic mobile playback is proven stable.
+    safeDryOutput: true,
+
     minFilterHz: 140,
     maxFilterHz: 12000,
     minRate: 0.76,
