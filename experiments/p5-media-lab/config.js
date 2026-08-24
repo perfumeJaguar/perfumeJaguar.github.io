@@ -2,9 +2,9 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.6.1",
+    version: "0.6.2",
     targetFps: 60,
-    requestFullscreenOnStart: false,
+    requestFullscreenOnStart: true,
     preventContextMenu: true,
     modeDurationSec: 11,
     imageSwitchSec: 0.10,
@@ -66,8 +66,6 @@ window.P5LAB_CONFIG = {
     sourceCropMaxZoom: 2.65,
     sourceCropTouchBoost: 0.45,
     sourceCropPanFactor: 0.42,
-
-    // Touch now slows source turnover a little more, but still not dramatically.
     touchTransitionSlowdown: 0.28,
 
     feedbackScale: 0.994,
@@ -82,18 +80,14 @@ window.P5LAB_CONFIG = {
     halationBlur: 5,
     vignetteStrength: 0.34,
 
-    // Common PHOTO_CRUSH pass: every mode receives this before touch rupture.
     crushContrast: 1.32,
     crushPosterizeLevels: 6,
     crushIntruderAlpha: 28,
 
-    // Touch rupture: high-contrast grayscale with only a very narrow two-step
-    // gray transition around the black/white boundary.
     touchRuptureContrast: 3.2,
     touchRupturePosterizeLevels: 4,
     touchRuptureBands: 13,
 
-    // Motion-sensitive feedback appears only while pressed and moving fast enough.
     swipeFeedbackThreshold: 0.20,
     swipeFeedbackScaleMin: 0.985,
     swipeFeedbackScaleMax: 1.012,
@@ -119,6 +113,7 @@ window.P5LAB_CONFIG = {
 
   telemetry: {
     enabled: true,
+    author: "Hoyeon Choi",
     maxEvents: 18,
     opacity: 0.72,
     secondaryOpacity: 0.36,
@@ -129,5 +124,6 @@ window.P5LAB_CONFIG = {
     marginMobile: 12,
     marginDesktop: 18,
     glitchOnMotion: true,
+    glitchLabels: true,
   },
 };
