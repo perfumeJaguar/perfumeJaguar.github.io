@@ -17,9 +17,7 @@ class P5LabTelemetry {
     this.events.length = Math.min(this.events.length, this.config.maxEvents);
   }
 
-  set(name, value) {
-    this.metrics[name] = value;
-  }
+  set(name, value) { this.metrics[name] = value; }
 
   render(snapshot) {
     if (!this.config.enabled) return;
@@ -27,20 +25,12 @@ class P5LabTelemetry {
     const mobile = P5LabUtils.isMobileLayout();
     const margin = mobile ? this.config.marginMobile : this.config.marginDesktop;
     const size = mobile ? this.config.fontSizeMobile : this.config.fontSizeDesktop;
-
-    // Do not name this variable `line`: p5 exposes a global line() drawing
-    // function and shadowing it causes `TypeError: line is not a function`
-    // later when the pointer crosshair is rendered.
     const rowStep = size * this.config.lineHeight;
-
     const motion = snapshot.analysis.motionSmooth || 0;
     const glitch = this.config.glitchOnMotion && motion > 0.28;
 
-    if (glitch && frameCount % 3 === 0) {
-      this.frameJitter = random(-2.5, 2.5) * motion;
-    } else {
-      this.frameJitter *= 0.72;
-    }
+    if (glitch && frameCount % 3 === 0) this.frameJitter = random(-2.5, 2.5) * motion;
+    else this.frameJitter *= 0.72;
 
     push();
     translate(this.frameJitter, 0);
@@ -59,10 +49,12 @@ class P5LabTelemetry {
       `FX            ${snapshot.visual.activeFx}`,
       `SOURCE        ${snapshot.media.sourceLabel}`,
       `SOURCE_TYPE   ${snapshot.media.sourceType}`,
+      `IMAGE_POOL    ${snapshot.media.imagePoolSize || 0}`,
       `VIDEO_STATE   ${snapshot.media.videoState || "IDLE"}`,
       `VIDEO_READY   ${snapshot.media.videoReadyState || 0}`,
       `AUDIO_STATE   ${snapshot.audio.state || "IDLE"}`,
-      `AUDIO_CTX     ${snapshot.audio.contextState || "UNKNOWN"}`,
+      `AUDIO_MODE    ${snapshot.audio.contextState || "UNKNOWN"}`,
+      `AUDIO_PCM     ${snapshot.audio.analysisReady ? "READY" : "LOADING"}`,
       `FRAME         ${String(frameCount).padStart(7, "0")}`,
       `TIME          ${P5LabUtils.formatTime(millis() / 1000)}`,
       `FPS           ${snapshot.system.fps.toFixed(1)}`,
@@ -95,22 +87,12 @@ class P5LabTelemetry {
 
     fill(secondary);
     if (width > 820) {
-      const blockWidth = 180;
-      this.drawLines(parameterLines, width - margin - blockWidth, margin, rowStep);
+      this.drawLines(parameterLines, width - margin - 180, margin, rowStep);
     } else {
       const mobileParameterLines = [
-        parameterLines[0],
-        parameterLines[1],
-        parameterLines[4],
-        parameterLines[6],
-        parameterLines[7],
-        parameterLines[8],
-        parameterLines[12],
-        parameterLines[13],
-        parameterLines[14],
-        parameterLines[15],
-        parameterLines[16],
-        parameterLines[17],
+        parameterLines[0], parameterLines[1], parameterLines[2], parameterLines[4],
+        parameterLines[6], parameterLines[7], parameterLines[8], parameterLines[9],
+        parameterLines[10], parameterLines[11], parameterLines[16], parameterLines[17],
       ];
       this.drawLines(mobileParameterLines, margin, margin + leftLines.length * rowStep + rowStep, rowStep);
     }
@@ -132,14 +114,11 @@ class P5LabTelemetry {
     line(px, py - 8, px, py + 8);
     noFill();
     circle(px, py, Math.max(12, min(width, height) * P5LAB_CONFIG.interaction.pointerRadiusNorm * 2));
-
     pop();
   }
 
   drawLines(lines, x, y, lineHeight) {
-    for (let i = 0; i < lines.length; i += 1) {
-      text(lines[i], x, y + i * lineHeight);
-    }
+    for (let i = 0; i < lines.length; i += 1) text(lines[i], x, y + i * lineHeight);
   }
 }
 
