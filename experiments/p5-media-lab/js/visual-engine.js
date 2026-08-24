@@ -1,320 +1,98 @@
-/**
- * VisualEngine is intentionally a sampler of p5 techniques rather than one
- * perfectly restrained artwork. Presets expose different operations so the
- * owner can later remove, combine or develop them into a final piece.
+/** P5 MEDIA LAB 01 — VISUAL ENGINE
+ * A deliberately broad sampler: video processing + full-frame still-image work.
+ * Particle synthesis is intentionally absent in v0.2.0.
  */
 class P5LabVisualEngine {
   constructor(config, telemetry) {
-    this.config = config;
-    this.telemetry = telemetry;
-    this.buffer = null;
-    this.feedback = null;
-    this.feedbackScratch = null;
-    this.mosaicSample = null;
-    this.modeIndex = 0;
-    this.modeStartedMs = 0;
-    this.particles = [];
-    this.lastPresetName = "";
+    this.config=config; this.telemetry=telemetry; this.buffer=null; this.feedback=null;
+    this.feedbackScratch=null; this.mosaicSample=null; this.modeIndex=0; this.modeStartedMs=0;
   }
-
-  setup(viewportW, viewportH) {
-    this.rebuild(viewportW, viewportH);
-    this.modeStartedMs = millis();
-    this.announcePreset();
+  setup(w,h){ this.rebuild(w,h); this.modeStartedMs=millis(); this.announcePreset(); }
+  rebuild(w,h){
+    const mobile=P5LabUtils.isMobileLayout();
+    const edge=mobile?P5LAB_CONFIG.render.maxBufferLongEdgeMobile:P5LAB_CONFIG.render.maxBufferLongEdgeDesktop;
+    const s=P5LabUtils.fitInside(w,h,edge);
+    this.buffer=createGraphics(s.width,s.height); this.feedback=createGraphics(s.width,s.height); this.feedbackScratch=createGraphics(s.width,s.height);
+    const cols=mobile?this.config.mosaicColsMobile:this.config.mosaicColsDesktop;
+    this.mosaicSample=createGraphics(cols,Math.max(2,Math.ceil(cols*s.height/s.width)));
+    [this.buffer,this.feedback,this.feedbackScratch,this.mosaicSample].forEach(g=>g.pixelDensity(1));
+    this.feedback.background(0); this.feedbackScratch.background(0); this.telemetry.event(`VISUAL BUFFER ${s.width}X${s.height}`);
   }
-
-  rebuild(viewportW, viewportH) {
-    const mobile = P5LabUtils.isMobileLayout();
-    const longEdge = mobile ? P5LAB_CONFIG.render.maxBufferLongEdgeMobile : P5LAB_CONFIG.render.maxBufferLongEdgeDesktop;
-    const size = P5LabUtils.fitInside(viewportW, viewportH, longEdge);
-
-    this.buffer = createGraphics(size.width, size.height);
-    this.feedback = createGraphics(size.width, size.height);
-    this.feedbackScratch = createGraphics(size.width, size.height);
-
-    const mosaicCols = mobile ? this.config.mosaicColsMobile : this.config.mosaicColsDesktop;
-    const mosaicRows = Math.max(2, Math.ceil(mosaicCols * size.height / size.width));
-    this.mosaicSample = createGraphics(mosaicCols, mosaicRows);
-
-    this.buffer.pixelDensity(1);
-    this.feedback.pixelDensity(1);
-    this.feedbackScratch.pixelDensity(1);
-    this.mosaicSample.pixelDensity(1);
-    this.feedback.background(0);
-    this.feedbackScratch.background(0);
-    this.telemetry.event(`VISUAL BUFFER ${size.width}X${size.height}`);
-  }
-
-  currentPreset() {
-    return this.config.presets[this.modeIndex % this.config.presets.length];
-  }
-
-  updateMode() {
-    if (millis() - this.modeStartedMs > P5LAB_CONFIG.app.modeDurationSec * 1000) {
-      this.modeIndex = (this.modeIndex + 1) % this.config.presets.length;
-      this.modeStartedMs = millis();
-      this.announcePreset();
-    }
-  }
-
-  announcePreset() {
-    const preset = this.currentPreset();
-    this.lastPresetName = preset.name;
-    this.telemetry.event(`MODE ${preset.name}`);
-  }
-
-  render(source, collageImage, analysis, audio, interaction) {
-    this.updateMode();
-    const preset = this.currentPreset();
-    const g = this.buffer;
-
-    g.push();
-    g.background(0);
-
-    if (preset.base) this.drawBase(g, source, analysis, audio, interaction);
-    if (preset.rgbSplit) this.drawRgbSplit(g, source, analysis, interaction);
-    if (preset.slices) this.drawSlices(g, source, analysis, interaction);
-    if (preset.mosaic) this.drawMosaic(g, source, analysis, audio, interaction);
-    if (preset.particles) this.drawParticles(g, analysis, audio, interaction);
-
-    if (collageImage && (preset.name === "OVERLOAD" || preset.name === "SLICE_SCAN")) {
-      this.drawCollage(g, collageImage, analysis, interaction);
-    }
-
-    if (preset.waveform) this.drawWaveform(g, audio, interaction);
-    this.drawScanlines(g, analysis, audio);
-
-    if (preset.posterize) {
-      try {
-        const levels = Math.floor(P5LabUtils.map01(interaction.x, 3, 8));
-        g.filter(POSTERIZE, levels);
-      } catch (_) {}
-    }
-
-    g.pop();
-
-    if (preset.feedback) {
-      this.applyFeedback(g, analysis, audio, interaction);
-    } else {
-      this.feedback.clear();
-      this.feedback.image(g, 0, 0);
-    }
-
-    background(P5LAB_CONFIG.render.background);
-    P5LabUtils.drawCover(null, preset.feedback ? this.feedback : g, 255);
-  }
-
-  drawBase(g, source, analysis, audio, interaction) {
-    const zoom = 1 + interaction.pressure * 0.035 + audio.bass * 0.012;
-    const maxShift = 14 * analysis.motionSmooth;
-    const ox = (interaction.x - 0.5) * maxShift;
-    const oy = (interaction.y - 0.5) * maxShift;
-    P5LabUtils.drawCover(g, source, 255, zoom, ox, oy);
-  }
-
-  drawRgbSplit(g, source, analysis, interaction) {
-    // Each channel pass supplies its tint directly to drawCover. Keeping the tint
-    // inside the helper prevents nested push()/tint() state from cancelling it.
-    const amount = this.config.rgbSplitMaxPx * (0.2 + analysis.motionSmooth * 0.8 + interaction.pressure * 0.4);
-
-    g.push();
-    g.blendMode(ADD);
-    P5LabUtils.drawCover(g, source, 120, 1.005, -amount, 0, [255, 55, 55]);
-    P5LabUtils.drawCover(g, source, 105, 1.0, amount * 0.25, amount * 0.1, [55, 255, 120]);
-    P5LabUtils.drawCover(g, source, 115, 1.008, amount, -amount * 0.1, [70, 110, 255]);
-    g.blendMode(BLEND);
-    g.pop();
-  }
-
-  drawSlices(g, source, analysis, interaction) {
-    // Slices are relatively expensive because the source is redrawn once per band.
-    // The mobile baseline therefore uses fewer bands than a wide desktop layout.
-    const mobile = P5LabUtils.isMobileLayout();
-    const count = mobile ? this.config.sliceCountMobile : this.config.sliceCountDesktop;
-    const sliceH = g.height / count;
-    const t = millis() * 0.001;
-
-    for (let i = 0; i < count; i += 1) {
-      const y = i * sliceH;
-      const n = noise(i * 0.23, t * 0.6) - 0.5;
-      const offset = n * g.width * (0.04 + analysis.motionSmooth * 0.18) * (0.7 + interaction.pressure);
-
-      g.push();
-      const ctx = g.drawingContext;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, y, g.width, sliceH + 1);
-      ctx.clip();
-      P5LabUtils.drawCover(g, source, 180, 1.0 + Math.abs(n) * 0.018, offset, 0);
-      ctx.restore();
-      g.pop();
-    }
-  }
-
-  drawMosaic(g, source, analysis, audio, interaction) {
-    const mobile = P5LabUtils.isMobileLayout();
-    const cols = mobile ? this.config.mosaicColsMobile : this.config.mosaicColsDesktop;
-    const cell = g.width / cols;
-    const rows = Math.ceil(g.height / cell);
-
-    const sample = this.mosaicSample;
-    sample.clear();
-    P5LabUtils.drawCover(sample, source, 255);
-    sample.loadPixels();
-
-    g.background(0);
-    g.noStroke();
-    for (let y = 0; y < rows; y += 1) {
-      for (let x = 0; x < cols; x += 1) {
-        const idx = 4 * (y * sample.width + x);
-        const r = sample.pixels[idx] || 0;
-        const gg = sample.pixels[idx + 1] || 0;
-        const b = sample.pixels[idx + 2] || 0;
-        const l = (r + gg + b) / (255 * 3);
-        const scale = 0.32 + l * 0.72 + audio.rms * 0.35;
-        const jitter = (noise(x * 0.14, y * 0.14, frameCount * 0.008) - 0.5) * cell * analysis.motionSmooth * 2;
-        g.fill(r, gg, b, 225);
-        g.rect(x * cell + jitter, y * cell, cell * scale, cell * scale);
-      }
-    }
-  }
-
-  drawParticles(g, analysis, audio, interaction) {
-    const mobile = P5LabUtils.isMobileLayout();
-    const maxCount = mobile ? this.config.maxParticlesMobile : this.config.maxParticlesDesktop;
-    const spawn = Math.ceil(1 + audio.bass * 5 + analysis.motionSmooth * 6);
-
-    for (let i = 0; i < spawn && this.particles.length < maxCount; i += 1) {
-      this.particles.push({
-        x: interaction.x * g.width + randomGaussian() * g.width * 0.05,
-        y: interaction.y * g.height + randomGaussian() * g.height * 0.05,
-        vx: random(-0.8, 0.8),
-        vy: random(-1.2, 0.3),
-        age: 0,
-        life: random(45, 170),
-        seed: random(1000),
-        size: random(2, 9),
-      });
-    }
-
-    g.push();
-    g.blendMode(ADD);
-    g.noStroke();
-    for (const p of this.particles) {
-      const n = noise(p.seed, frameCount * 0.01) - 0.5;
-      p.vx += n * 0.11;
-      p.vy -= 0.003 + audio.treble * 0.015;
-      p.x += p.vx * (0.7 + analysis.motionSmooth * 3);
-      p.y += p.vy * (0.7 + audio.rms * 4);
-      p.age += 1;
-
-      const life = 1 - p.age / p.life;
-      const r = analysis.localR || 220;
-      const gg = analysis.localG || 220;
-      const b = analysis.localB || 220;
-      g.fill(r, gg, b, 170 * life);
-      g.circle(p.x, p.y, p.size * (0.6 + audio.rms * 2.2));
-    }
-    g.blendMode(BLEND);
-    g.pop();
-
-    this.particles = this.particles.filter((p) => p.age < p.life && p.x > -40 && p.x < g.width + 40 && p.y > -60 && p.y < g.height + 60);
-  }
-
-  drawCollage(g, img, analysis, interaction) {
-    const t = millis() * 0.001;
-    const alpha = 35 + 70 * analysis.motionSmooth;
-    const scale = 0.25 + interaction.x * 0.2;
-    const w = g.width * scale;
-    const h = w * (img.height / img.width);
-
-    g.push();
-    g.blendMode(SCREEN);
-    g.tint(255, alpha);
-    const x = (0.5 + 0.34 * sin(t * 0.37)) * g.width - w * 0.5;
-    const y = (0.5 + 0.34 * cos(t * 0.29)) * g.height - h * 0.5;
-    g.image(img, x, y, w, h);
-    g.noTint();
-    g.blendMode(BLEND);
-    g.pop();
-  }
-
-  drawWaveform(g, audio, interaction) {
-    const wave = audio.waveform;
-    if (!wave || wave.length < 2) return;
-
-    g.push();
-    g.noFill();
-    g.stroke(255, 95 + audio.rms * 120);
-    g.strokeWeight(1 + interaction.pressure * 1.2);
-    g.beginShape();
-    const yCenter = g.height * (0.78 - interaction.y * 0.18);
-    const amp = g.height * (0.035 + audio.rms * 0.13);
-    for (let i = 0; i < wave.length; i += 2) {
-      const x = (i / (wave.length - 1)) * g.width;
-      const y = yCenter + wave[i] * amp;
-      g.vertex(x, y);
-    }
-    g.endShape();
-    g.pop();
-  }
-
-  drawScanlines(g, analysis, audio) {
-    const spacing = this.config.scanlineSpacing;
-    g.push();
-    g.stroke(255, 10 + 18 * audio.treble + 20 * analysis.motionSmooth);
-    g.strokeWeight(1);
-    for (let y = 0; y < g.height; y += spacing) {
-      g.line(0, y, g.width, y);
+  currentPreset(){ return this.config.presets[this.modeIndex%this.config.presets.length]; }
+  updateMode(){ if(millis()-this.modeStartedMs>P5LAB_CONFIG.app.modeDurationSec*1000){this.modeIndex=(this.modeIndex+1)%this.config.presets.length;this.modeStartedMs=millis();this.announcePreset();} }
+  announcePreset(){ this.telemetry.event(`MODE ${this.currentPreset().name}`); }
+  render(source,img,analysis,audio,interaction){
+    this.updateMode(); const p=this.currentPreset(),g=this.buffer; g.push(); g.background(0);
+    if(p.photoFull) this.drawPhotoFull(g,img,interaction);
+    else if(p.photoDouble) this.drawPhotoDouble(g,img,analysis,interaction);
+    else if(p.photoStrobe) this.drawPhotoStrobe(g,img,interaction);
+    else {
+      if(p.base) this.drawBase(g,source,analysis,audio,interaction);
+      if(p.rgbSplit) this.drawRgbSplit(g,source,analysis,interaction);
+      if(p.slices) this.drawSlices(g,source,analysis,interaction);
+      if(p.mosaic) this.drawMosaic(g,source,analysis,audio,interaction,p.mosaic);
+      if(p.waveform) this.drawWaveform(g,audio,interaction);
+      this.drawScanlines(g,analysis,audio);
+      if(p.posterize){try{g.filter(POSTERIZE,Math.floor(P5LabUtils.map01(interaction.x,3,8)));}catch(_){}}
     }
     g.pop();
+    if(p.feedback) this.applyFeedback(g,analysis,audio,interaction); else {this.feedback.clear();this.feedback.image(g,0,0);}
+    background(P5LAB_CONFIG.render.background); P5LabUtils.drawCover(null,p.feedback?this.feedback:g,255);
   }
-
-  applyFeedback(current, analysis, audio, interaction) {
-    const previous = this.feedback;
-    const next = this.feedbackScratch;
-    const scale = this.config.feedbackScale - analysis.motionSmooth * 0.004;
-    const w = next.width * scale;
-    const h = next.height * scale;
-    const x = (next.width - w) * (0.5 + (interaction.x - 0.5) * 0.2);
-    const y = (next.height - h) * (0.5 + (interaction.y - 0.5) * 0.2);
-
-    next.push();
-    next.clear();
-    next.background(0, 16 + audio.bass * 20);
-    next.tint(255, this.config.feedbackAlpha);
-    next.image(previous, x, y, w, h);
-    next.noTint();
-    next.blendMode(SCREEN);
-    next.tint(255, 155 + audio.rms * 80);
-    next.image(current, 0, 0);
-    next.noTint();
-    next.blendMode(BLEND);
-    next.pop();
-
-    this.feedback = next;
-    this.feedbackScratch = previous;
+  drawPhotoFull(g,img,interaction){
+    if(!img){g.background(0);return;}
+    // Still image is the entire frame: no floating collage object.
+    const zoom=1+interaction.pressure*0.06;
+    P5LabUtils.drawCover(g,img,255,zoom,(interaction.x-.5)*g.width*.025,(interaction.y-.5)*g.height*.025);
   }
-
-  snapshot() {
-    const preset = this.currentPreset();
-    const activeFx = [
-      preset.rgbSplit && "RGB",
-      preset.slices && "SLICE",
-      preset.mosaic && "MOSAIC",
-      preset.feedback && "FDBK",
-      preset.particles && "PART",
-      preset.waveform && "WAVE",
-      preset.posterize && "POST",
-    ].filter(Boolean).join("+") || "BASE";
-
-    return {
-      modeName: preset.name,
-      modeIndex: this.modeIndex,
-      particleCount: this.particles.length,
-      activeFx,
-    };
+  drawPhotoDouble(g,img,analysis,interaction){
+    if(!img){g.background(0);return;}
+    // Two full-frame exposures of the same rapidly changing archive image. The
+    // second pass is offset/zoomed and screened, producing photographic rather
+    // than sprite-like double exposure.
+    P5LabUtils.drawCover(g,img,210,1.02,(interaction.x-.5)*18,0);
+    g.push(); g.blendMode(SCREEN);
+    P5LabUtils.drawCover(g,img,105+analysis.localLuma*70,1.18,(-.5+interaction.x)*-42,(interaction.y-.5)*36,[190,215,255]);
+    g.blendMode(BLEND); g.pop();
   }
+  drawPhotoStrobe(g,img,interaction){
+    if(!img){g.background(0);return;}
+    // Quantized time creates abrupt cuts. Each time cell derives a deterministic
+    // crop/zoom from noise, so ten originals read like hundreds of shots.
+    const tick=Math.floor(millis()/95);
+    const n1=noise(tick*1.731), n2=noise(tick*3.117+20), n3=noise(tick*5.331+40);
+    const zoom=1.12+n3*1.45;
+    const ox=(n1-.5)*g.width*.72, oy=(n2-.5)*g.height*.72;
+    P5LabUtils.drawCover(g,img,255,zoom,ox,oy);
+    if(tick%7===0){g.push();g.blendMode(DIFFERENCE);P5LabUtils.drawCover(g,img,90,1.02,-ox*.12,-oy*.12);g.blendMode(BLEND);g.pop();}
+    if(interaction.pressure>.15){g.push();g.blendMode(SCREEN);P5LabUtils.drawCover(g,img,100,1.45,-ox*.3,oy*.2);g.pop();}
+  }
+  drawBase(g,source,analysis,audio,interaction){
+    const zoom=1+interaction.pressure*.035+audio.bass*.012,maxShift=14*analysis.motionSmooth;
+    P5LabUtils.drawCover(g,source,255,zoom,(interaction.x-.5)*maxShift,(interaction.y-.5)*maxShift);
+  }
+  drawRgbSplit(g,source,analysis,interaction){
+    const a=this.config.rgbSplitMaxPx*(.2+analysis.motionSmooth*.8+interaction.pressure*.4);g.push();g.blendMode(ADD);
+    P5LabUtils.drawCover(g,source,120,1.005,-a,0,[255,55,55]);P5LabUtils.drawCover(g,source,105,1,a*.25,a*.1,[55,255,120]);P5LabUtils.drawCover(g,source,115,1.008,a,-a*.1,[70,110,255]);g.blendMode(BLEND);g.pop();
+  }
+  drawSlices(g,source,analysis,interaction){
+    const count=P5LabUtils.isMobileLayout()?this.config.sliceCountMobile:this.config.sliceCountDesktop,sliceH=g.height/count,t=millis()*.001;
+    for(let i=0;i<count;i++){const y=i*sliceH,n=noise(i*.23,t*.6)-.5,off=n*g.width*(.04+analysis.motionSmooth*.18)*(.7+interaction.pressure);g.push();const c=g.drawingContext;c.save();c.beginPath();c.rect(0,y,g.width,sliceH+1);c.clip();P5LabUtils.drawCover(g,source,180,1+Math.abs(n)*.018,off,0);c.restore();g.pop();}
+  }
+  drawMosaic(g,source,analysis,audio,interaction,variant){
+    const cols=P5LabUtils.isMobileLayout()?this.config.mosaicColsMobile:this.config.mosaicColsDesktop,cell=g.width/cols,rows=Math.ceil(g.height/cell),s=this.mosaicSample;
+    s.clear();P5LabUtils.drawCover(s,source,255);s.loadPixels();g.background(variant==='mono'?245:0);g.noStroke();
+    for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+      const idx=4*(y*s.width+x),r=s.pixels[idx]||0,gg=s.pixels[idx+1]||0,b=s.pixels[idx+2]||0,l=(r+gg+b)/(255*3);
+      let scale=variant==='inverse'?(.18+(1-l)*.92):(.16+l*.98); scale+=interaction.pressure*.18;
+      const size=cell*scale,j=(noise(x*.14,y*.14,frameCount*.008)-.5)*cell*analysis.motionSmooth*1.4;
+      if(variant==='mono') g.fill(l<.5?15:20,225); else g.fill(r,gg,b,235);
+      g.rect(x*cell+(cell-size)/2+j,y*cell+(cell-size)/2,size,size);
+    }
+  }
+  drawWaveform(g,audio,interaction){const w=audio.waveform;if(!w||w.length<2)return;g.push();g.noFill();g.stroke(255,95+audio.rms*120);g.beginShape();const yc=g.height*(.78-interaction.y*.18),amp=g.height*(.035+audio.rms*.13);for(let i=0;i<w.length;i+=2)g.vertex(i/(w.length-1)*g.width,yc+w[i]*amp);g.endShape();g.pop();}
+  drawScanlines(g,analysis,audio){g.push();g.stroke(255,10+18*audio.treble+20*analysis.motionSmooth);for(let y=0;y<g.height;y+=this.config.scanlineSpacing)g.line(0,y,g.width,y);g.pop();}
+  applyFeedback(current,analysis,audio,interaction){const prev=this.feedback,next=this.feedbackScratch,scale=this.config.feedbackScale-analysis.motionSmooth*.004,w=next.width*scale,h=next.height*scale,x=(next.width-w)*(.5+(interaction.x-.5)*.2),y=(next.height-h)*(.5+(interaction.y-.5)*.2);next.push();next.clear();next.background(0,16+audio.bass*20);next.tint(255,this.config.feedbackAlpha);next.image(prev,x,y,w,h);next.noTint();next.blendMode(SCREEN);next.tint(255,155+audio.rms*80);next.image(current,0,0);next.noTint();next.blendMode(BLEND);next.pop();this.feedback=next;this.feedbackScratch=prev;}
+  snapshot(){const p=this.currentPreset();const fx=[p.photoFull&&'PHOTO',p.photoDouble&&'DOUBLE',p.photoStrobe&&'STROBE',p.rgbSplit&&'RGB',p.slices&&'SLICE',p.mosaic&&`MOSAIC_${String(p.mosaic).toUpperCase()}`,p.feedback&&'FDBK',p.waveform&&'WAVE',p.posterize&&'POST'].filter(Boolean).join('+')||'BASE';return{modeName:p.name,modeIndex:this.modeIndex,particleCount:0,activeFx:fx};}
 }
-
-window.P5LabVisualEngine = P5LabVisualEngine;
+window.P5LabVisualEngine=P5LabVisualEngine;
