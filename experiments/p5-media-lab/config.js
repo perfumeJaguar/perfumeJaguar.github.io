@@ -8,11 +8,10 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.1.4",
+    version: "0.1.5",
     targetFps: 60,
 
-    // Temporarily disabled in the stability baseline. Once continuous video and
-    // audio playback are confirmed, fullscreen can be reintroduced separately.
+    // Still disabled while establishing a reliable mobile playback baseline.
     requestFullscreenOnStart: false,
 
     preventContextMenu: true,
@@ -52,9 +51,9 @@ window.P5LAB_CONFIG = {
     syntheticFallback: true,
     masterVolume: 0.72,
 
-    // v0.1.4: audible playback uses native HTMLAudioElement + Web Audio API.
-    // This deliberately bypasses p5.SoundFile output after mobile tests showed
-    // PLAYING/RUNNING states while the physical speaker output remained silent.
+    // v0.1.5 baseline: direct native HTMLAudioElement output only.
+    // No p5.sound or Web Audio routing is allowed to sit between the MP3 and the
+    // phone speaker until basic audible playback is confirmed on mobile Chrome.
     safeDryOutput: true,
 
     minFilterHz: 140,
