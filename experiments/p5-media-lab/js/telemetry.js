@@ -43,13 +43,18 @@ class P5LabTelemetry {
     const secondary = 255 * this.config.secondaryOpacity;
     const faint = 255 * this.config.faintOpacity;
 
+    const loaded = snapshot.media.imagePoolSize || 0;
+    const total = snapshot.media.imagePoolTotal || 0;
+    const failed = snapshot.media.imageFailedCount || 0;
+
     const leftLines = [
       `${P5LAB_CONFIG.app.title}   V${P5LAB_CONFIG.app.version}`,
       `MODE          ${snapshot.visual.modeName}`,
       `FX            ${snapshot.visual.activeFx}`,
       `SOURCE        ${snapshot.media.sourceLabel}`,
       `SOURCE_TYPE   ${snapshot.media.sourceType}`,
-      `IMAGE_POOL    ${snapshot.media.imagePoolSize || 0}`,
+      `IMAGE_POOL    ${loaded}/${total}`,
+      `IMAGE_FAIL    ${failed}`,
       `VIDEO_STATE   ${snapshot.media.videoState || "IDLE"}`,
       `VIDEO_READY   ${snapshot.media.videoReadyState || 0}`,
       `AUDIO_STATE   ${snapshot.audio.state || "IDLE"}`,
