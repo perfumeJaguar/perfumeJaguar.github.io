@@ -2,16 +2,12 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.3.0",
+    version: "0.4.0",
     targetFps: 60,
     requestFullscreenOnStart: false,
     preventContextMenu: true,
     modeDurationSec: 11,
     sourceSwitchSec: 9,
-
-    // The still archive is intentionally treated as a high-speed time source.
-    // 0.10 sec = 10 source changes per second. Individual visual modes may run
-    // even faster while the pointer is held down.
     imageSwitchSec: 0.10,
   },
 
@@ -29,11 +25,17 @@ window.P5LAB_CONFIG = {
   media: {
     videosMuted: true,
     autoplayAfterStart: true,
-    imageCacheLimit: 10,
-    preloadAllImages: true,
     preferVideo: true,
     useBlobVideoLoader: true,
     videoFetchTimeoutMs: 30000,
+
+    // Still archive loading is explicit and bounded rather than firing every
+    // loadImage() at once. 10 current assets all stay resident. The same loader
+    // can grow toward ~50 assets; if memory becomes a problem later, this is the
+    // single place where a rolling working-set policy should be introduced.
+    preloadAllImages: true,
+    imagePreloadConcurrency: 3,
+    imageCacheLimit: 64,
   },
 
   interaction: {
@@ -45,18 +47,21 @@ window.P5LAB_CONFIG = {
   audio: {
     enabled: true,
     masterVolume: 0.82,
-
-    // Audible output remains the proven v0.1.5 direct <audio> path. Analysis is
-    // computed separately from a decoded PCM copy of the same MP3, so attaching
-    // analysers/effects can no longer silence the physical device output.
     directNativeOutput: true,
     pcmWindowSize: 512,
     waveformPoints: 128,
 
-    minFilterHz: 140,
-    maxFilterHz: 12000,
+    // Audible mapping: Y moves rate from slow(top) to fast(bottom), sampled
+    // luminance multiplies that rate (bright=faster, dark=slower), and press adds
+    // a final +10% push. preservesPitch=false requests actual pitch movement.
     minRate: 0.76,
     maxRate: 1.18,
+    lumaRateMin: 0.88,
+    lumaRateMax: 1.12,
+    pressRateBoost: 0.10,
+
+    minFilterHz: 140,
+    maxFilterHz: 12000,
     maxDelayTime: 0.72,
     maxDelayFeedback: 0.64,
     maxDistortion: 0.38,
@@ -65,30 +70,33 @@ window.P5LAB_CONFIG = {
   visual: {
     enabled: true,
 
-    // Feedback is now reserved for high-speed still-image modes rather than the
-    // earlier video feedback preset.
-    feedbackScale: 0.988,
-    feedbackAlpha: 86,
+    // Recursive feedback remains as one study, but its buffer is deliberately
+    // lower resolution because it was one of the clear mobile bottlenecks.
+    feedbackScale: 0.987,
+    feedbackAlpha: 82,
+    feedbackResolutionScaleMobile: 0.52,
+    feedbackResolutionScaleDesktop: 0.72,
 
     mosaicColsMobile: 18,
     mosaicColsDesktop: 32,
     scanlineSpacing: 5,
-
-    // High-speed still-image timing. Touch/hold accelerates these values further.
     photoCutMs: 100,
     photoBurstMs: 42,
-    photoGridBase: 4,
-    photoGridMax: 9,
+    rgbTearMaxPx: 34,
+    halationBlur: 5,
 
-    // Video presets now concentrate on the luminance-block family that tested well.
-    // PICKUP, RGB_FEEDBACK, SLICE_SCAN and OVERLOAD were intentionally removed.
+    // Media-centric studies only. No particles, old PICKUP, video slice or
+    // framed/grid photo layout.
     presets: [
       { name: "PHOTO_FULL", photoFull: true },
       { name: "PHOTO_DOUBLE_BLEND", photoDoubleBlend: true },
       { name: "PHOTO_RAPID_CROP", photoRapidCrop: true },
-      { name: "PHOTO_MULTI_SWAP", photoMultiSwap: true },
-      { name: "PHOTO_FEEDBACK", photoFeedback: true, feedback: true },
+      { name: "PHOTO_SHARD_SWAP", photoShardSwap: true },
       { name: "PHOTO_BLEND_CYCLE", photoBlendCycle: true },
+      { name: "PHOTO_RGB_TEAR", photoRgbTear: true },
+      { name: "PHOTO_CRUSH", photoCrush: true },
+      { name: "PHOTO_HALATION", photoHalation: true },
+      { name: "PHOTO_FEEDBACK", photoFeedback: true, feedback: true },
       { name: "LUMA_BLOCKS", mosaic: "normal" },
       { name: "LUMA_VOID", mosaic: "inverse" },
       { name: "LUMA_MONO", mosaic: "mono" },
