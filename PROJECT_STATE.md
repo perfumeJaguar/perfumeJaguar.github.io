@@ -1,6 +1,6 @@
 # PROJECT_STATE — Hoyeon Choi Portfolio
 
-Last updated: 2026-08-23
+Last updated: 2026-08-25
 Repository: `perfumeJaguar/perfumeJaguar.github.io`
 Live site: `https://perfumeJaguar.github.io/`
 Branch: `main`
@@ -101,9 +101,39 @@ Current characteristics:
 
 Important limitation: embedding image data directly in HTML is acceptable only for this quick experiment. Final portfolio media should be stored as separate optimized image assets (preferably an organized assets/images structure, using JPEG/WebP as appropriate) rather than Base64 inside HTML.
 
-## Media supplied during this checkpoint
+### `experiments/p5-media-lab/`
+Mobile-first interactive audiovisual laboratory built with static HTML/CSS/JS, p5.js 2.3.1, and p5.sound 0.4.1. It is intentionally isolated from the main portfolio so it can evolve as a browser-based artwork without destabilizing the production pages.
 
-The user supplied three photographs for the embed/gallery experiment: portraits/documentation photographs at night around utility/electrical cabinets, with a recorder used as a visual/performance element. Three images were provided, but the current `Embed_test_1.html` prototype only directly incorporates one image. The remaining images should be considered available design references from this session, but are not yet persistent repository assets.
+Current v0.1 capabilities:
+- Full-viewport `cover` rendering for moving image / still image; cropping is preferred over letterboxing.
+- Portrait/mobile as baseline, with adaptive wider desktop layout.
+- First-gesture audio start and fullscreen request; viewport-cover fallback if fullscreen is unavailable.
+- Single mouse / one-finger touch interaction only.
+- Downsampled video analysis: global RGB/luminance, pointer-local RGB/luminance, simple frame-difference motion.
+- Image/gesture to audio mapping: local luminance → filter cutoff, motion → delay feedback, pointer X → delay/pan, pointer Y → rate/distortion.
+- Audio analysis back to visuals using RMS, bass/mid/treble FFT bands, and waveform.
+- Visual presets demonstrating p5 capabilities: base cover, RGB split, clipped slice displacement, mosaic reconstruction, particles, ping-pong feedback, posterize filter, waveform geometry, scanlines, still-image collage.
+- Real telemetry rendered as an aesthetic terminal layer: mode, FX, source, frame/time/FPS, viewport/buffer, pointer and pixel data, motion, audio analysis, effect parameters, and actual event history.
+- Procedural moving-image + synthesized audio fallback so the project is runnable before personal media assets are added.
+- Mobile-conscious limits: pixel density 1, one active video decoder, 128px analysis width, 900px mobile processing long edge, bounded particles, 12 mobile slice passes, and ping-pong feedback buffers.
+
+Primary editing/documentation files:
+- `experiments/p5-media-lab/README.md` — operation, capabilities, mapping and customization guide.
+- `experiments/p5-media-lab/ARCHITECTURE.md` — runtime graph, frame order, module responsibilities, signal routing, performance strategy, and edit map.
+- `experiments/p5-media-lab/ASSET_GUIDE.md` — recommended real-media preparation specs.
+- `experiments/p5-media-lab/assets.js` — media manifest.
+- `experiments/p5-media-lab/config.js` — main user-facing parameters and visual preset switches.
+
+Planned first real-media batch:
+- about 10 short videos: H.264 MP4, 1280×720, 24/25/30fps, around 4–8 seconds each;
+- about 20 JPEG/WebP photographs, long edge roughly 1200–1800px;
+- one original-composition MP3, 44.1/48kHz, 192–320kbps.
+
+The project should be tested on a real mobile Chrome device after those assets are added. The current performance settings are deliberately conservative and can be raised after measuring actual FPS/thermal behavior.
+
+## Media supplied during prior checkpoint
+
+The user supplied three photographs for the embed/gallery experiment: portraits/documentation photographs at night around utility/electrical cabinets, with a recorder used as a visual/performance element. Three images were provided, but the current `Embed_test_1.html` prototype only directly incorporates one image. The remaining images should be considered available design references from that session, but are not yet persistent repository assets.
 
 The supplied YouTube test URL was `https://youtu.be/POEwTjr0eWY`.
 
@@ -131,6 +161,7 @@ Typeface evaluation should prioritize:
 - Avoid prematurely consolidating experimental layouts into the production index.
 - Reuse shared content/logic where sensible. The font theme pages already demonstrate this by redirecting to one canonical specimen rather than duplicating a large HTML document.
 - For final media, use repository assets rather than Base64 HTML payloads.
+- Browser-based media-art experiments should remain isolated under `experiments/` until their interaction/performance vocabulary is stable enough to be promoted into the portfolio proper.
 
 ## Reference sites
 
@@ -150,10 +181,12 @@ These are references for visual grammar and layout, not targets for literal copy
 - Need to replace placeholder project/CV content with actual portfolio material.
 - Need to decide final media optimization strategy and asset directory conventions before importing many images/videos.
 - YouTube's embed UI cannot be made completely custom/blank using ordinary embed parameters; the current prototype only minimizes available chrome. A different presentation strategy may be needed if stricter visual control becomes important.
+- p5 Media Lab requires real-device validation after user media is imported; fullscreen behavior, browser decoding, audio graph behavior, FPS, battery use, and thermal load can differ across mobile browsers/devices.
+- p5 CPU/canvas effects should not be forced beyond their useful range. If future work becomes shader-heavy or spatial/3D, Three.js/WebGL should be evaluated rather than endlessly optimizing p5 CPU paths.
 
 ## Next useful step
 
-Continue visual evaluation using `Embed_test_1.html` and the font/background specimens. Once typography, background, and basic media rhythm are chosen, establish an `assets/` structure and convert the strongest prototype into the actual portfolio baseline before importing substantial project content.
+For the p5 experiment, add the prepared video/photo/audio batch to `experiments/p5-media-lab/assets/`, register it in `assets.js`, then evaluate each visual preset on a real vertical mobile Chrome device and remove/adjust weak effects. For the general portfolio, continue visual evaluation using `Embed_test_1.html` and the font/background specimens.
 
 ## Continuity rule
 
