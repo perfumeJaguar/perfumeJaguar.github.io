@@ -28,6 +28,9 @@ class P5LabAudioEngine {
     this.oscB = null;
     this.started = false;
     this.usingFallback = false;
+    this.playState = "IDLE";
+    this.contextState = "UNKNOWN";
+    this.lastReportedState = "";
 
     this.data = {
       rms: 0,
@@ -57,10 +60,7 @@ class P5LabAudioEngine {
 
     this.amp = new p5.Amplitude(0.88);
 
-    // p5.sound 0.4.x changed p5.FFT from the legacy
-    // new p5.FFT(smoothing, bins) signature to new p5.FFT(fftSize).
-    // Passing 0.82 as the first argument is therefore interpreted as an FFT
-    // size and ultimately becomes 1, which Web Audio correctly rejects.
+    // p5.sound 0.4.x uses p5.FFT(fftSize); smoothing is configured separately.
     this.fft = new p5.FFT(128);
     try { this.fft.smooth(0.82); } catch (_) {}
 
@@ -69,29 +69,69 @@ class P5LabAudioEngine {
         this.telemetry.event(`AUDIO LOAD ${P5LabUtils.basename(this.assetPath)}`);
         this.soundFile = await loadSound(this.assetPath);
         this.fileLoaded = true;
+        this.playState = "READY";
         this.telemetry.event(`AUDIO READY ${P5LabUtils.basename(this.assetPath)}`);
       } catch (error) {
+        this.playState = "FILE_ERROR";
         this.telemetry.event("AUDIO FILE FAILED / FALLBACK AVAILABLE");
       }
     }
   }
 
-  async start() {
-    if (!this.config.enabled || this.started) return;
-    await userStartAudio();
+  start() {
+    if (!this.config.enabled || this.started) return Promise.resolve();
+    this.started = true;
+
+    // IMPORTANT: nothing that requires a user gesture may be placed after an
+    // awaited fullscreen promise. This method is called directly from pointerdown,
+    // so resume + play requests are issued immediately in the gesture call stack.
+    try {
+      const ctx = getAudioContext();
+      this.contextState = ctx && ctx.state ? ctx.state.toUpperCase() : "UNKNOWN";
+      this.telemetry.event(`AUDIO CONTEXT ${this.contextState}`);
+
+      const resumePromise = userStartAudio();
+      if (resumePromise && typeof resumePromise.then === "function") {
+        resumePromise
+          .then(() => {
+            const current = getAudioContext();
+            this.contextState = current && current.state ? current.state.toUpperCase() : "RUNNING";
+            this.telemetry.event(`AUDIO CONTEXT ${this.contextState}`);
+          })
+          .catch((error) => {
+            this.contextState = "RESUME_ERROR";
+            this.telemetry.event(`AUDIO RESUME ERROR ${error && error.name ? error.name : "ERROR"}`);
+          });
+      }
+    } catch (error) {
+      this.contextState = "CONTEXT_ERROR";
+      this.telemetry.event(`AUDIO CONTEXT ERROR ${error.message || "UNKNOWN"}`);
+    }
 
     if (this.fileLoaded && this.soundFile) {
       this.source = this.soundFile;
       this.routeSource(this.soundFile);
+
       try { this.soundFile.setVolume(this.config.masterVolume); } catch (_) {}
-      this.soundFile.loop();
-      this.telemetry.event("AUDIO FILE PLAYBACK START");
+
+      try {
+        // p5.sound 0.4.x separates the loop flag from starting playback.
+        // Official examples use loop(true) followed by play() from a gesture.
+        this.soundFile.loop(true);
+        this.soundFile.play();
+        this.playState = "PLAY_REQUESTED";
+        this.telemetry.event("AUDIO PLAY REQUESTED");
+      } catch (error) {
+        this.playState = "PLAY_ERROR";
+        this.telemetry.event(`AUDIO PLAY ERROR ${error.message || "UNKNOWN"}`);
+      }
     } else if (this.config.syntheticFallback) {
       this.startFallbackSynth();
+      this.playState = "SYNTH_REQUESTED";
       this.telemetry.event("SYNTH AUDIO FALLBACK START");
     }
 
-    this.started = true;
+    return Promise.resolve();
   }
 
   routeSource(source) {
@@ -115,9 +155,14 @@ class P5LabAudioEngine {
 
       this.amp.setInput(this.distortionFx || this.reverb);
       this.fft.setInput(this.distortionFx || this.reverb);
+      this.telemetry.event("AUDIO ROUTE READY");
     } catch (error) {
       this.telemetry.event(`AUDIO ROUTE FALLBACK ${error.message || "ERROR"}`);
-      try { source.connect(); } catch (_) {}
+      try {
+        source.connect();
+        this.amp.setInput(source);
+        this.fft.setInput(source);
+      } catch (_) {}
     }
   }
 
@@ -164,6 +209,25 @@ class P5LabAudioEngine {
     const pan = interaction.x * 2 - 1;
 
     if (this.started) {
+      try {
+        const ctx = getAudioContext();
+        this.contextState = ctx && ctx.state ? ctx.state.toUpperCase() : this.contextState;
+      } catch (_) {}
+
+      if (this.soundFile) {
+        try {
+          if (this.soundFile.isPlaying()) this.playState = "PLAYING";
+          else if (this.playState === "PLAY_REQUESTED" && this.contextState === "RUNNING") this.playState = "WAITING";
+        } catch (_) {}
+      } else if (this.usingFallback && this.contextState === "RUNNING") {
+        this.playState = "SYNTH_PLAYING";
+      }
+
+      if (this.playState !== this.lastReportedState) {
+        this.lastReportedState = this.playState;
+        this.telemetry.event(`AUDIO STATE ${this.playState}`);
+      }
+
       try { this.filter.set(filterHz, 1.2 + motion * 7); } catch (_) {}
       try { this.delay.delayTime(delayTime); } catch (_) {}
       try { this.delay.feedback(delayFeedback); } catch (_) {}
@@ -219,7 +283,12 @@ class P5LabAudioEngine {
   }
 
   snapshot() {
-    return this.data;
+    return {
+      ...this.data,
+      state: this.playState,
+      contextState: this.contextState,
+      fileLoaded: this.fileLoaded,
+    };
   }
 }
 
