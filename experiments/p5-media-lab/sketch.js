@@ -90,39 +90,70 @@ function makeSnapshot() {
 
 function bindStartScreen() {
   const screen = document.getElementById("start-screen");
-  const trigger = async () => {
+
+  const trigger = () => {
     if (appStarted) return;
     appStarted = true;
-    screen.classList.add("is-hidden");
     telemetry.event("USER GESTURE ACCEPTED");
 
+    // Gesture-gated APIs must be invoked before *any* awaited work. Previously
+    // fullscreen was awaited first, which could consume/expire transient user
+    // activation and leave userStartAudio()/video playback suspended forever on
+    // mobile Chrome. Start audio and media immediately and independently.
+    let audioStart;
+    let mediaStart;
+
+    try {
+      audioStart = audioEngine.start();
+    } catch (error) {
+      telemetry.event(`AUDIO START ERROR ${error.message || "UNKNOWN"}`);
+      audioStart = Promise.reject(error);
+    }
+
+    try {
+      mediaStart = mediaManager.start();
+    } catch (error) {
+      telemetry.event(`MEDIA START ERROR ${error.message || "UNKNOWN"}`);
+      mediaStart = Promise.reject(error);
+    }
+
+    screen.classList.add("is-hidden");
+
+    // Fullscreen is best-effort only. It deliberately comes *after* audio/video
+    // play requests because media playback is more important than hiding browser UI.
     if (P5LAB_CONFIG.app.requestFullscreenOnStart) {
       try {
         const root = document.documentElement;
         if (!document.fullscreenElement && root.requestFullscreen) {
+          let fullscreenPromise;
           try {
-            await root.requestFullscreen({ navigationUI: "hide" });
+            fullscreenPromise = root.requestFullscreen({ navigationUI: "hide" });
           } catch (_) {
-            await root.requestFullscreen();
+            fullscreenPromise = root.requestFullscreen();
           }
-          telemetry.event("FULLSCREEN ACTIVE");
+
+          if (fullscreenPromise && typeof fullscreenPromise.then === "function") {
+            fullscreenPromise
+              .then(() => telemetry.event("FULLSCREEN ACTIVE"))
+              .catch(() => telemetry.event("FULLSCREEN UNAVAILABLE / VIEWPORT MODE"));
+          }
+        } else {
+          telemetry.event("FULLSCREEN UNAVAILABLE / VIEWPORT MODE");
         }
       } catch (_) {
         telemetry.event("FULLSCREEN UNAVAILABLE / VIEWPORT MODE");
       }
     }
 
-    try {
-      await audioEngine.start();
-    } catch (error) {
-      telemetry.event(`AUDIO START ERROR ${error.message || "UNKNOWN"}`);
-    }
-
-    try {
-      await mediaManager.start();
-    } catch (error) {
-      telemetry.event(`MEDIA START ERROR ${error.message || "UNKNOWN"}`);
-    }
+    Promise.allSettled([
+      Promise.resolve(audioStart),
+      Promise.resolve(mediaStart),
+    ]).then((results) => {
+      const audioResult = results[0];
+      const mediaResult = results[1];
+      telemetry.event(`AUDIO START ${audioResult.status}`);
+      telemetry.event(`MEDIA START ${mediaResult.status}`);
+    });
   };
 
   screen.addEventListener("pointerdown", trigger, { once: true });
