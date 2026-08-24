@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#000000" />
+  <title>p5 Media Lab 01</title>
+  <link rel="stylesheet" href="./style.css" />
+
+  <!--
+    Library versions are pinned deliberately so the experiment can be reproduced later.
+    p5.sound is maintained separately from p5.js in the p5.js 2.x era.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/p5@2.3.1/lib/p5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/p5.sound@0.4.1/dist/p5.sound.min.js"></script>
+
+  <script src="./assets.js"></script>
+  <script src="./config.js"></script>
+  <script src="./js/utils.js"></script>
+  <script src="./js/telemetry.js"></script>
+  <script src="./js/media-manager.js"></script>
+  <script src="./js/video-analyzer.js"></script>
+  <script src="./js/audio-engine.js"></script>
+  <script src="./js/interaction.js"></script>
+  <script src="./js/visual-engine.js"></script>
+  <script src="./sketch.js"></script>
+</head>
+<body>
+  <main id="app" aria-label="p5 Media Lab 01 interactive audiovisual experiment">
+    <div id="start-screen" role="button" tabindex="0" aria-label="Touch or click to start">
+      <div class="start-copy">
+        <div class="start-title">P5 MEDIA LAB / 01</div>
+        <div class="start-action">TOUCH TO START</div>
+        <div class="start-note">audio + fullscreen request on first gesture</div>
+      </div>
+    </div>
+
+    <div id="fatal-message" hidden></div>
+  </main>
+</body>
+</html>
