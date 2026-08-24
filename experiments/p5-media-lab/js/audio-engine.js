@@ -56,7 +56,13 @@ class P5LabAudioEngine {
     }
 
     this.amp = new p5.Amplitude(0.88);
-    this.fft = new p5.FFT(0.82, 128);
+
+    // p5.sound 0.4.x changed p5.FFT from the legacy
+    // new p5.FFT(smoothing, bins) signature to new p5.FFT(fftSize).
+    // Passing 0.82 as the first argument is therefore interpreted as an FFT
+    // size and ultimately becomes 1, which Web Audio correctly rejects.
+    this.fft = new p5.FFT(128);
+    try { this.fft.smooth(0.82); } catch (_) {}
 
     if (this.assetPath) {
       try {
