@@ -2,7 +2,7 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.4.1",
+    version: "0.5.0",
     targetFps: 60,
     requestFullscreenOnStart: false,
     preventContextMenu: true,
@@ -41,41 +41,57 @@ window.P5LAB_CONFIG = {
 
   audio: {
     enabled: true,
-    masterVolume: 0.82,
+    masterVolume: 0.78,
     directNativeOutput: true,
     pcmWindowSize: 512,
     waveformPoints: 128,
-    minRate: 0.76,
-    maxRate: 1.18,
-    lumaRateMin: 0.88,
-    lumaRateMax: 1.12,
-    pressRateBoost: 0.10,
-    minFilterHz: 140,
-    maxFilterHz: 12000,
-    maxDelayTime: 0.72,
-    maxDelayFeedback: 0.64,
-    maxDistortion: 0.38,
+
+    // Rate is intentionally subtle now. Touch is primarily assigned to FX depth,
+    // not transport speed. Bright regions still move slightly faster than dark.
+    minRate: 0.965,
+    maxRate: 1.035,
+    lumaRateMin: 0.985,
+    lumaRateMax: 1.015,
+    pressRateBoost: 0.012,
+
+    // Parallel wet layer. The native <audio> remains audible and untouched;
+    // decoded PCM is replayed through this separate effect graph.
+    fxEnabled: true,
+    fxWetMin: 0.035,
+    fxWetMax: 0.42,
+    minFilterHz: 260,
+    maxFilterHz: 14500,
+    maxDelayTime: 0.48,
+    maxDelayFeedback: 0.68,
+    maxDistortion: 0.62,
   },
 
   visual: {
     enabled: true,
 
-    // Long, low-resolution recursive trail for the preferred photo-feedback study.
-    feedbackScale: 0.994,
-    feedbackAlpha: 154,
+    // Longer recursive trail. Pressure now increases trail persistence rather
+    // than merely speeding up image changes.
+    feedbackScale: 0.996,
+    feedbackAlpha: 174,
     feedbackResolutionScaleMobile: 0.52,
     feedbackResolutionScaleDesktop: 0.72,
 
     mosaicColsMobile: 18,
     mosaicColsDesktop: 32,
     scanlineSpacing: 5,
-    photoCutMs: 90,
-    photoBurstMs: 34,
-    rgbTearMaxPx: 42,
+    photoCutMs: 92,
+    photoBurstMs: 38,
+    rgbTearMaxPx: 52,
     halationBlur: 5,
     vignetteStrength: 0.34,
 
-    // PHOTO_FEEDBACK is intentionally first while this study is being tuned.
+    // Global crop envelope applied to every still-image mode.
+    cropMinZoom: 1.18,
+    cropMaxZoom: 3.9,
+    cropPressBoost: 1.15,
+    cropOffsetScale: 0.95,
+
+    // PHOTO_FEEDBACK stays first during tuning.
     presets: [
       { name: "PHOTO_FEEDBACK_CROP", photoFeedback: true, feedback: true },
       { name: "PHOTO_RAPID_CROP", photoRapidCrop: true },
