@@ -8,7 +8,7 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.1.2",
+    version: "0.1.3",
     targetFps: 60,
 
     // Temporarily disabled in the stability baseline. The previous mobile test
