@@ -1,13 +1,12 @@
 /**
- * MediaManager owns the currently active video/image source.
+ * P5 MEDIA LAB 01 — MEDIA MANAGER
  *
- * v0.1.2 changes the video loading strategy for mobile reliability. Large MP4s
- * served by a static host can remain at HTMLMediaElement.readyState === 0 while
- * the browser tries to discover metadata / range information. Instead of asking
- * the <video> decoder to stream directly from GitHub Pages, the default test path
- * fetches one complete clip as a Blob, creates a local object URL, and then hands
- * that local URL to createVideo(). This costs a short load delay but gives us a
- * deterministic baseline before experimenting with streaming optimization.
+ * v0.3.0 removes the decorative procedural fallback. During media loading the
+ * work now keeps the last valid visual source (or black before the first source)
+ * instead of showing a synthetic pink/purple signal unrelated to the user's media.
+ *
+ * Still images are preloaded as a small 10-image archive so photo modes can cut,
+ * blend and tile them at 10–20+ changes/sec without network stalls.
  */
 class P5LabMediaManager {
   constructor(assets, config, telemetry) {
@@ -21,11 +20,13 @@ class P5LabMediaManager {
     this.currentImage = null;
     this.currentImageIndex = -1;
     this.imageCache = new Map();
+    this.imagePool = [];
 
-    this.procedural = null;
+    this.blackFallback = null;
     this.currentSource = null;
-    this.currentSourceType = "PROCEDURAL";
-    this.sourceLabel = "PROCEDURAL_SIGNAL";
+    this.currentSourceType = "BLACK";
+    this.sourceLabel = "BLACK_FALLBACK";
+
     this.lastSourceSwitchMs = 0;
     this.lastImageSwitchMs = 0;
     this.started = false;
@@ -38,16 +39,39 @@ class P5LabMediaManager {
   }
 
   setup() {
-    this.procedural = createGraphics(640, 960);
-    this.procedural.pixelDensity(1);
-    this.currentSource = this.procedural;
-    this.telemetry.event("PROCEDURAL FALLBACK READY");
+    this.blackFallback = createGraphics(8, 8);
+    this.blackFallback.pixelDensity(1);
+    this.blackFallback.background(0);
+    this.currentSource = this.blackFallback;
+    this.telemetry.event("BLACK FALLBACK READY");
 
-    // Start downloading clip 0 while the start screen is still visible and the
-    // MP3 is being prepared. Fetching is network work and does not block draw().
+    if (this.config.preloadAllImages && this.assets.images.length) {
+      this.preloadImages();
+    }
+
     if (this.config.useBlobVideoLoader && this.assets.videos.length > 0 && this.config.preferVideo) {
       this.primeVideoPromise = this.fetchVideoBlob(0);
     }
+  }
+
+  async preloadImages() {
+    this.telemetry.event(`IMAGE PRELOAD ${this.assets.images.length}`);
+    const jobs = this.assets.images.map(async (path, index) => {
+      try {
+        const img = await loadImage(path);
+        this.imageCache.set(path, img);
+        this.imagePool[index] = img;
+        if (!this.currentImage) {
+          this.currentImage = img;
+          this.currentImageIndex = index;
+        }
+      } catch (_) {
+        this.telemetry.event(`IMAGE ERROR ${P5LabUtils.basename(path)}`);
+      }
+    });
+    await Promise.allSettled(jobs);
+    this.imagePool = this.imagePool.filter(Boolean);
+    this.telemetry.event(`IMAGE POOL READY ${this.imagePool.length}`);
   }
 
   async start() {
@@ -60,89 +84,29 @@ class P5LabMediaManager {
       this.lastSourceSwitchMs = millis();
     } else if (this.assets.images.length > 0) {
       await this.switchImage(0, true);
-    } else {
-      this.telemetry.event("NO USER MEDIA / USING SYNTH SOURCE");
     }
   }
 
-  update(interaction, audioSnapshot) {
-    this.updateProcedural(interaction, audioSnapshot);
+  update() {
     if (!this.started) return;
 
     if (this.currentVideo && this.currentVideo.elt) {
       const elt = this.currentVideo.elt;
       this.videoReadyState = Number(elt.readyState) || 0;
-      if (!elt.paused && this.videoReadyState >= 2 && this.videoState !== "PLAYING") {
-        this.setVideoState("PLAYING");
-      }
+      if (!elt.paused && this.videoReadyState >= 2 && this.videoState !== "PLAYING") this.setVideoState("PLAYING");
     }
 
     const now = millis();
-    if (
-      this.assets.videos.length > 0 &&
-      !this.videoPending &&
-      now - this.lastSourceSwitchMs > P5LAB_CONFIG.app.sourceSwitchSec * 1000
-    ) {
+    if (this.assets.videos.length && !this.videoPending && now - this.lastSourceSwitchMs > P5LAB_CONFIG.app.sourceSwitchSec * 1000) {
       const next = (this.currentVideoIndex + 1) % this.assets.videos.length;
-      this.switchVideo(next).finally(() => {
-        this.lastSourceSwitchMs = millis();
-      });
+      this.switchVideo(next).finally(() => { this.lastSourceSwitchMs = millis(); });
     }
 
-    if (this.assets.images.length > 0 && !this.pendingImage && now - this.lastImageSwitchMs > P5LAB_CONFIG.app.imageSwitchSec * 1000) {
+    if (this.assets.images.length && !this.pendingImage && now - this.lastImageSwitchMs > P5LAB_CONFIG.app.imageSwitchSec * 1000) {
       const next = (this.currentImageIndex + 1) % this.assets.images.length;
       this.switchImage(next, false);
       this.lastImageSwitchMs = now;
     }
-
-    if (!this.currentSource) {
-      this.currentSource = this.procedural;
-      this.currentSourceType = "PROCEDURAL";
-      this.sourceLabel = "PROCEDURAL_SIGNAL";
-    }
-  }
-
-  updateProcedural(interaction, audioSnapshot) {
-    const g = this.procedural;
-    const t = millis() * 0.0002;
-    const amp = audioSnapshot ? audioSnapshot.rms : 0;
-    const px = interaction ? interaction.x : 0.5;
-    const py = interaction ? interaction.y : 0.5;
-
-    g.push();
-    g.background(5, 10, 12);
-    g.noStroke();
-
-    const bands = 48;
-    for (let i = 0; i < bands; i += 1) {
-      const y = (i / bands) * g.height;
-      const n = noise(i * 0.13, t * 4);
-      const r = 18 + 190 * noise(i * 0.11, t + 10);
-      const gg = 12 + 100 * noise(i * 0.09, t + 20);
-      const b = 25 + 210 * noise(i * 0.07, t + 30);
-      g.fill(r, gg, b, 190);
-      g.rect(0, y, g.width, g.height / bands + 2 + n * 12);
-    }
-
-    g.blendMode(ADD);
-    for (let i = 0; i < 26; i += 1) {
-      const a = t * (0.3 + i * 0.006) + i * 0.4;
-      const x = g.width * (0.5 + 0.44 * sin(a * 7.1 + px * 4));
-      const y = g.height * (0.5 + 0.44 * cos(a * 4.7 + py * 5));
-      const size = 3 + 42 * noise(i * 0.2, t * 8) * (0.4 + amp * 4);
-      g.fill(255, 24 + i * 5);
-      g.circle(x, y, size);
-    }
-    g.blendMode(BLEND);
-
-    g.stroke(255, 34);
-    g.strokeWeight(1);
-    for (let x = 0; x < g.width; x += 24) {
-      const offset = (noise(x * 0.01, t * 3) - 0.5) * 50;
-      g.line(x + offset, 0, x - offset, g.height);
-    }
-
-    g.pop();
   }
 
   async fetchVideoBlob(index) {
@@ -150,27 +114,18 @@ class P5LabMediaManager {
     const path = this.assets.videos[normalized];
     const label = P5LabUtils.basename(path);
     const controller = new AbortController();
-    const timeoutMs = Number(this.config.videoFetchTimeoutMs) || 30000;
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
+    const timeoutId = setTimeout(() => controller.abort(), Number(this.config.videoFetchTimeoutMs) || 30000);
     this.setVideoState("FETCHING");
     this.telemetry.event(`VIDEO FETCH ${label}`);
 
     try {
-      const response = await fetch(path, {
-        cache: "force-cache",
-        signal: controller.signal,
-      });
+      const response = await fetch(path, { cache: "force-cache", signal: controller.signal });
       if (!response.ok) throw new Error(`HTTP_${response.status}`);
-
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       this.videoBytes = blob.size || 0;
       this.telemetry.event(`VIDEO FETCHED ${label} ${(this.videoBytes / 1048576).toFixed(1)}MB`);
-      return { index: normalized, path, label, objectUrl, bytes: this.videoBytes };
-    } catch (error) {
-      this.telemetry.event(`VIDEO FETCH ERROR ${label} ${error && error.name ? error.name : "ERROR"}`);
-      throw error;
+      return { index: normalized, path, label, objectUrl };
     } finally {
       clearTimeout(timeoutId);
     }
@@ -183,24 +138,15 @@ class P5LabMediaManager {
     const normalized = ((index % this.assets.videos.length) + this.assets.videos.length) % this.assets.videos.length;
     const path = this.assets.videos[normalized];
     const label = P5LabUtils.basename(path);
-
-    this.currentSource = this.procedural;
-    this.currentSourceType = "PROCEDURAL";
-    this.sourceLabel = "PROCEDURAL_SIGNAL";
-    this.videoReadyState = 0;
-
     let mediaUrl = path;
     let nextBlobUrl = null;
 
     try {
       if (this.config.useBlobVideoLoader) {
-        let prepared;
-        if (normalized === 0 && this.primeVideoPromise) {
-          prepared = await this.primeVideoPromise;
-          this.primeVideoPromise = null;
-        } else {
-          prepared = await this.fetchVideoBlob(normalized);
-        }
+        const prepared = (normalized === 0 && this.primeVideoPromise)
+          ? await this.primeVideoPromise
+          : await this.fetchVideoBlob(normalized);
+        this.primeVideoPromise = null;
         mediaUrl = prepared.objectUrl;
         nextBlobUrl = prepared.objectUrl;
       }
@@ -209,53 +155,24 @@ class P5LabMediaManager {
       this.telemetry.event(`VIDEO DECODE ${label}`);
 
       await new Promise((resolve) => {
-        let resolved = false;
-        let activated = false;
-        const timeoutId = setTimeout(() => {
-          if (!activated) {
-            this.setVideoState("DECODE_TIMEOUT");
-            this.telemetry.event(`VIDEO DECODE TIMEOUT ${label}`);
-            finish();
-          }
-        }, 15000);
-
-        const finish = () => {
-          if (resolved) return;
-          resolved = true;
-          clearTimeout(timeoutId);
-          resolve();
-        };
-
+        let done = false;
+        const finish = () => { if (!done) { done = true; clearTimeout(timeoutId); resolve(); } };
+        const timeoutId = setTimeout(() => { this.setVideoState("DECODE_TIMEOUT"); finish(); }, 15000);
         const video = createVideo(mediaUrl);
         const elt = video.elt;
         video.hide();
-
-        elt.muted = true;
-        elt.defaultMuted = true;
-        elt.volume = 0;
-        elt.loop = true;
-        elt.autoplay = true;
-        elt.playsInline = true;
-        elt.preload = "auto";
+        Object.assign(elt, { muted: true, defaultMuted: true, volume: 0, loop: true, autoplay: true, playsInline: true, preload: "auto" });
         elt.setAttribute("muted", "");
         elt.setAttribute("playsinline", "");
-        elt.setAttribute("webkit-playsinline", "");
 
         const activate = () => {
-          if (activated || !elt || elt.readyState < 2) return;
-          activated = true;
-
-          // Dispose the old decoder only when the replacement is genuinely ready.
+          if (done || !elt || elt.readyState < 2) return;
           if (this.currentVideo && this.currentVideo !== video) {
-            try {
-              this.currentVideo.stop();
-              this.currentVideo.remove();
-            } catch (_) {}
+            try { this.currentVideo.stop(); this.currentVideo.remove(); } catch (_) {}
           }
           if (this.currentVideoBlobUrl && this.currentVideoBlobUrl !== nextBlobUrl) {
             try { URL.revokeObjectURL(this.currentVideoBlobUrl); } catch (_) {}
           }
-
           this.currentVideo = video;
           this.currentVideoIndex = normalized;
           this.currentVideoBlobUrl = nextBlobUrl;
@@ -268,94 +185,39 @@ class P5LabMediaManager {
           finish();
         };
 
-        const tryPlay = (reason) => {
-          try {
-            const playPromise = elt.play();
-            this.telemetry.event(`VIDEO PLAY REQUEST ${reason}`);
-            if (playPromise && typeof playPromise.then === "function") {
-              playPromise
-                .then(() => {
-                  this.setVideoState("PLAYING");
-                  activate();
-                })
-                .catch((error) => {
-                  this.setVideoState("PLAY_BLOCKED");
-                  this.telemetry.event(`VIDEO PLAY BLOCKED ${error && error.name ? error.name : "ERROR"}`);
-                });
-            }
-          } catch (error) {
-            this.setVideoState("PLAY_ERROR");
-            this.telemetry.event(`VIDEO PLAY ERROR ${error.message || "UNKNOWN"}`);
-          }
-        };
-
-        elt.addEventListener("loadedmetadata", () => {
-          this.videoReadyState = elt.readyState;
-          this.setVideoState("METADATA");
-        }, { once: true });
-
-        elt.addEventListener("loadeddata", () => {
-          this.videoReadyState = elt.readyState;
-          this.setVideoState("LOADED_DATA");
-          activate();
-        }, { once: true });
-
-        elt.addEventListener("canplay", () => {
-          this.videoReadyState = elt.readyState;
-          this.setVideoState("CAN_PLAY");
-          activate();
-          if (elt.paused) tryPlay("CANPLAY");
-        }, { once: true });
-
-        elt.addEventListener("playing", () => {
-          this.videoReadyState = elt.readyState;
-          this.setVideoState("PLAYING");
-          activate();
-        });
-
+        ["loadeddata", "canplay", "playing"].forEach((name) => elt.addEventListener(name, activate));
         elt.addEventListener("waiting", () => this.setVideoState("BUFFERING"));
         elt.addEventListener("stalled", () => this.setVideoState("STALLED"));
-        elt.addEventListener("error", () => {
-          const code = elt.error ? elt.error.code : 0;
-          this.setVideoState(`ERROR_${code || "UNKNOWN"}`);
-          this.telemetry.event(`VIDEO ERROR ${label} CODE ${code || "?"}`);
-          finish();
-        }, { once: true });
+        elt.addEventListener("error", () => { this.setVideoState("ERROR"); finish(); }, { once: true });
 
-        tryPlay("MUTED_AUTO");
+        try {
+          const p = elt.play();
+          if (p && p.catch) p.catch(() => this.setVideoState("PLAY_BLOCKED"));
+        } catch (_) {}
       });
-    } catch (error) {
+    } catch (_) {
       this.setVideoState("LOAD_ERROR");
-      this.telemetry.event(`VIDEO LOAD ERROR ${label}`);
-      if (nextBlobUrl) {
-        try { URL.revokeObjectURL(nextBlobUrl); } catch (_) {}
-      }
+      if (nextBlobUrl) try { URL.revokeObjectURL(nextBlobUrl); } catch (_) {}
     } finally {
       this.videoPending = false;
     }
   }
 
-  setVideoState(next) {
-    if (next === this.videoState) return;
-    this.videoState = String(next);
-  }
+  setVideoState(next) { this.videoState = String(next); }
 
   async switchImage(index, makeBase = false) {
     if (!this.assets.images.length || this.pendingImage) return;
     this.pendingImage = true;
-
     const normalized = ((index % this.assets.images.length) + this.assets.images.length) % this.assets.images.length;
     const path = this.assets.images[normalized];
 
     try {
-      let img = this.imageCache.get(path);
+      let img = this.imageCache.get(path) || this.imagePool[normalized];
       if (!img) {
-        this.telemetry.event(`IMAGE LOAD ${P5LabUtils.basename(path)}`);
         img = await loadImage(path);
         this.imageCache.set(path, img);
-        this.trimImageCache();
+        this.imagePool[normalized] = img;
       }
-
       this.currentImage = img;
       this.currentImageIndex = normalized;
       if (makeBase || !this.currentVideo) {
@@ -363,27 +225,16 @@ class P5LabMediaManager {
         this.currentSourceType = "IMAGE";
         this.sourceLabel = P5LabUtils.basename(path);
       }
-    } catch (error) {
+    } catch (_) {
       this.telemetry.event(`IMAGE ERROR ${P5LabUtils.basename(path)}`);
     } finally {
       this.pendingImage = false;
     }
   }
 
-  trimImageCache() {
-    while (this.imageCache.size > this.config.imageCacheLimit) {
-      const firstKey = this.imageCache.keys().next().value;
-      this.imageCache.delete(firstKey);
-    }
-  }
-
-  getSource() {
-    return this.currentSource || this.procedural;
-  }
-
-  getCurrentImage() {
-    return this.currentImage;
-  }
+  getSource() { return this.currentSource || this.blackFallback; }
+  getCurrentImage() { return this.currentImage; }
+  getImagePool() { return this.imagePool.filter(Boolean); }
 
   snapshot() {
     return {
@@ -394,6 +245,7 @@ class P5LabMediaManager {
       videoState: this.videoState,
       videoReadyState: this.videoReadyState,
       videoBytes: this.videoBytes,
+      imagePoolSize: this.imagePool.filter(Boolean).length,
     };
   }
 }
