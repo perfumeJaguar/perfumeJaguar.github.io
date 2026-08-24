@@ -27,7 +27,12 @@ class P5LabTelemetry {
     const mobile = P5LabUtils.isMobileLayout();
     const margin = mobile ? this.config.marginMobile : this.config.marginDesktop;
     const size = mobile ? this.config.fontSizeMobile : this.config.fontSizeDesktop;
-    const line = size * this.config.lineHeight;
+
+    // Do not name this variable `line`: p5 exposes a global line() drawing
+    // function and shadowing it causes `TypeError: line is not a function`
+    // later when the pointer crosshair is rendered.
+    const rowStep = size * this.config.lineHeight;
+
     const motion = snapshot.analysis.motionSmooth || 0;
     const glitch = this.config.glitchOnMotion && motion > 0.28;
 
@@ -41,7 +46,7 @@ class P5LabTelemetry {
     translate(this.frameJitter, 0);
     textFont("monospace");
     textSize(size);
-    textLeading(line);
+    textLeading(rowStep);
     noStroke();
 
     const bright = 255 * this.config.opacity;
@@ -65,7 +70,7 @@ class P5LabTelemetry {
       `BUFFER        ${snapshot.system.bufferW} x ${snapshot.system.bufferH}`,
     ];
     fill(bright);
-    this.drawLines(leftLines, margin, margin, line);
+    this.drawLines(leftLines, margin, margin, rowStep);
 
     const parameterLines = [
       `POINTER_X     ${snapshot.interaction.x.toFixed(3)}`,
@@ -91,7 +96,7 @@ class P5LabTelemetry {
     fill(secondary);
     if (width > 820) {
       const blockWidth = 180;
-      this.drawLines(parameterLines, width - margin - blockWidth, margin, line);
+      this.drawLines(parameterLines, width - margin - blockWidth, margin, rowStep);
     } else {
       const mobileParameterLines = [
         parameterLines[0],
@@ -107,16 +112,16 @@ class P5LabTelemetry {
         parameterLines[16],
         parameterLines[17],
       ];
-      this.drawLines(mobileParameterLines, margin, margin + leftLines.length * line + line, line);
+      this.drawLines(mobileParameterLines, margin, margin + leftLines.length * rowStep + rowStep, rowStep);
     }
 
     const eventCount = mobile ? Math.min(9, this.events.length) : this.events.length;
-    const startY = height - margin - eventCount * line;
+    const startY = height - margin - eventCount * rowStep;
     for (let i = eventCount - 1; i >= 0; i -= 1) {
       const evt = this.events[i];
       const ageFade = 1 - i / Math.max(1, eventCount);
       fill(faint + (secondary - faint) * ageFade);
-      text(`> ${evt.message}`, margin, startY + (eventCount - 1 - i) * line);
+      text(`> ${evt.message}`, margin, startY + (eventCount - 1 - i) * rowStep);
     }
 
     stroke(255, faint);
