@@ -2,16 +2,19 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.2.0",
+    version: "0.3.0",
     targetFps: 60,
     requestFullscreenOnStart: false,
     preventContextMenu: true,
-    modeDurationSec: 12,
+    modeDurationSec: 11,
     sourceSwitchSec: 9,
-    // Images now change quickly enough that photo-only presets feel like a much
-    // larger source archive. Video presets simply ignore currentImage.
-    imageSwitchSec: 0.65,
+
+    // The still archive is intentionally treated as a high-speed time source.
+    // 0.10 sec = 10 source changes per second. Individual visual modes may run
+    // even faster while the pointer is held down.
+    imageSwitchSec: 0.10,
   },
+
   render: {
     pixelDensity: 1,
     background: 0,
@@ -22,20 +25,34 @@ window.P5LAB_CONFIG = {
     analysisEveryNFrames: 2,
     analysisPixelStep: 2,
   },
+
   media: {
     videosMuted: true,
     autoplayAfterStart: true,
     imageCacheLimit: 10,
+    preloadAllImages: true,
     preferVideo: true,
     useBlobVideoLoader: true,
     videoFetchTimeoutMs: 30000,
   },
-  interaction: { smoothing: 0.14, pointerRadiusNorm: 0.08, pressBoost: 1.35 },
+
+  interaction: {
+    smoothing: 0.14,
+    pointerRadiusNorm: 0.08,
+    pressBoost: 1.35,
+  },
+
   audio: {
     enabled: true,
-    syntheticFallback: true,
     masterVolume: 0.82,
-    safeDryOutput: true,
+
+    // Audible output remains the proven v0.1.5 direct <audio> path. Analysis is
+    // computed separately from a decoded PCM copy of the same MP3, so attaching
+    // analysers/effects can no longer silence the physical device output.
+    directNativeOutput: true,
+    pcmWindowSize: 512,
+    waveformPoints: 128,
+
     minFilterHz: 140,
     maxFilterHz: 12000,
     minRate: 0.76,
@@ -43,33 +60,44 @@ window.P5LAB_CONFIG = {
     maxDelayTime: 0.72,
     maxDelayFeedback: 0.64,
     maxDistortion: 0.38,
-    reverbDecay: 2.8,
-    fallbackOscAmp: 0.045,
   },
+
   visual: {
     enabled: true,
-    feedbackScale: 0.985,
-    feedbackAlpha: 72,
-    sliceCountMobile: 12,
-    sliceCountDesktop: 18,
+
+    // Feedback is now reserved for high-speed still-image modes rather than the
+    // earlier video feedback preset.
+    feedbackScale: 0.988,
+    feedbackAlpha: 86,
+
     mosaicColsMobile: 18,
     mosaicColsDesktop: 32,
     scanlineSpacing: 5,
-    rgbSplitMaxPx: 20,
+
+    // High-speed still-image timing. Touch/hold accelerates these values further.
+    photoCutMs: 100,
+    photoBurstMs: 42,
+    photoGridBase: 4,
+    photoGridMax: 9,
+
+    // Video presets now concentrate on the luminance-block family that tested well.
+    // PICKUP, RGB_FEEDBACK, SLICE_SCAN and OVERLOAD were intentionally removed.
     presets: [
-      { name: "PICKUP", base: true, waveform: true },
       { name: "PHOTO_FULL", photoFull: true },
-      { name: "PHOTO_DOUBLE", photoDouble: true },
-      { name: "PHOTO_STROBE_CROP", photoStrobe: true },
-      { name: "RGB_FEEDBACK", base: true, rgbSplit: true, feedback: true },
-      { name: "SLICE_SCAN", base: true, slices: true, feedback: true },
+      { name: "PHOTO_DOUBLE_BLEND", photoDoubleBlend: true },
+      { name: "PHOTO_RAPID_CROP", photoRapidCrop: true },
+      { name: "PHOTO_MULTI_SWAP", photoMultiSwap: true },
+      { name: "PHOTO_FEEDBACK", photoFeedback: true, feedback: true },
+      { name: "PHOTO_BLEND_CYCLE", photoBlendCycle: true },
       { name: "LUMA_BLOCKS", mosaic: "normal" },
       { name: "LUMA_VOID", mosaic: "inverse" },
       { name: "LUMA_MONO", mosaic: "mono" },
-      { name: "POSTER_WAVE", base: true, waveform: true, posterize: true },
-      { name: "OVERLOAD", base: true, rgbSplit: true, slices: true, feedback: true, waveform: true },
+      { name: "LUMA_DITHER", mosaic: "dither" },
+      { name: "LUMA_PULSE", mosaic: "pulse" },
+      { name: "POSTER_AUDIO", base: true, posterize: true, waveform: true },
     ],
   },
+
   telemetry: {
     enabled: true,
     maxEvents: 18,
