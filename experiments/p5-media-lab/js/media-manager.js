@@ -23,6 +23,9 @@ class P5LabMediaManager {
     this.lastImageSwitchMs = 0;
     this.started = false;
     this.pendingImage = false;
+    this.videoPending = false;
+    this.videoState = "IDLE";
+    this.videoReadyState = 0;
   }
 
   setup() {
@@ -33,14 +36,15 @@ class P5LabMediaManager {
   }
 
   async start() {
+    if (this.started) return;
     this.started = true;
-    this.lastSourceSwitchMs = millis();
     this.lastImageSwitchMs = millis();
 
     if (this.assets.videos.length > 0 && this.config.preferVideo) {
       await this.switchVideo(0);
+      this.lastSourceSwitchMs = millis();
     } else if (this.assets.images.length > 0) {
-      await this.switchImage(0);
+      await this.switchImage(0, true);
     } else {
       this.telemetry.event("NO USER MEDIA / USING SYNTH SOURCE");
     }
@@ -50,11 +54,23 @@ class P5LabMediaManager {
     this.updateProcedural(interaction, audioSnapshot);
     if (!this.started) return;
 
+    if (this.currentVideo && this.currentVideo.elt) {
+      this.videoReadyState = Number(this.currentVideo.elt.readyState) || 0;
+      if (!this.currentVideo.elt.paused && this.videoReadyState >= 2 && this.videoState !== "PLAYING") {
+        this.setVideoState("PLAYING");
+      }
+    }
+
     const now = millis();
-    if (this.assets.videos.length > 0 && now - this.lastSourceSwitchMs > P5LAB_CONFIG.app.sourceSwitchSec * 1000) {
+    if (
+      this.assets.videos.length > 0 &&
+      !this.videoPending &&
+      now - this.lastSourceSwitchMs > P5LAB_CONFIG.app.sourceSwitchSec * 1000
+    ) {
       const next = (this.currentVideoIndex + 1) % this.assets.videos.length;
-      this.switchVideo(next);
-      this.lastSourceSwitchMs = now;
+      this.switchVideo(next).finally(() => {
+        this.lastSourceSwitchMs = millis();
+      });
     }
 
     if (this.assets.images.length > 0 && !this.pendingImage && now - this.lastImageSwitchMs > P5LAB_CONFIG.app.imageSwitchSec * 1000) {
@@ -114,59 +130,157 @@ class P5LabMediaManager {
   }
 
   async switchVideo(index) {
-    if (!this.assets.videos.length) return;
+    if (!this.assets.videos.length || this.videoPending) return;
+    this.videoPending = true;
+
     const normalized = ((index % this.assets.videos.length) + this.assets.videos.length) % this.assets.videos.length;
     const path = this.assets.videos[normalized];
+    const label = P5LabUtils.basename(path);
 
-    this.telemetry.event(`VIDEO LOAD ${P5LabUtils.basename(path)}`);
+    this.telemetry.event(`VIDEO LOAD ${label}`);
+    this.setVideoState("LOADING");
 
     if (this.currentVideo) {
       try {
         this.currentVideo.stop();
         this.currentVideo.remove();
-      } catch (_) {
-      }
+      } catch (_) {}
       this.currentVideo = null;
-      this.currentSource = this.procedural;
-      this.currentSourceType = "PROCEDURAL";
-      this.sourceLabel = "PROCEDURAL_SIGNAL";
     }
 
-    await new Promise((resolve) => {
-      let resolved = false;
-      const finish = () => {
-        if (resolved) return;
-        resolved = true;
-        resolve();
-      };
+    this.currentSource = this.procedural;
+    this.currentSourceType = "PROCEDURAL";
+    this.sourceLabel = "PROCEDURAL_SIGNAL";
 
-      const video = createVideo(path, () => {
-        try {
-          video.hide();
-          video.attribute("playsinline", "");
-          video.attribute("webkit-playsinline", "");
-          video.volume(this.config.videosMuted ? 0 : 1);
-          video.loop();
+    try {
+      await new Promise((resolve) => {
+        let resolved = false;
+        let activated = false;
+        let timeoutId = null;
+
+        const finish = () => {
+          if (resolved) return;
+          resolved = true;
+          if (timeoutId) clearTimeout(timeoutId);
+          resolve();
+        };
+
+        const activate = (video) => {
+          if (activated) return;
+          const elt = video.elt;
+          if (!elt || elt.readyState < 2) return;
+
+          activated = true;
           this.currentVideo = video;
           this.currentVideoIndex = normalized;
           this.currentSource = video;
           this.currentSourceType = "VIDEO";
-          this.sourceLabel = P5LabUtils.basename(path);
-          this.telemetry.event(`VIDEO ACTIVE ${this.sourceLabel}`);
-        } catch (error) {
-          this.telemetry.event(`VIDEO INIT ERROR ${error.message || "UNKNOWN"}`);
-        }
-        finish();
-      });
-
-      setTimeout(() => {
-        if (!resolved && !this.currentVideo) {
-          try { video.remove(); } catch (_) {}
-          this.telemetry.event(`VIDEO TIMEOUT ${P5LabUtils.basename(path)}`);
+          this.sourceLabel = label;
+          this.videoReadyState = elt.readyState;
+          this.setVideoState(elt.paused ? "READY" : "PLAYING");
+          this.telemetry.event(`VIDEO ACTIVE ${label}`);
           finish();
-        }
-      }, 7000);
-    });
+        };
+
+        const video = createVideo(path);
+        this.currentVideo = video;
+        this.currentVideoIndex = normalized;
+
+        const elt = video.elt;
+        video.hide();
+
+        // Mobile autoplay policies care about the native `muted` flag, not only
+        // a volume of zero. Set all relevant HTMLMediaElement properties before
+        // play() is requested. The initial play() call happens synchronously from
+        // the user's first gesture whenever this is the first clip.
+        elt.muted = true;
+        elt.defaultMuted = true;
+        elt.volume = 0;
+        elt.loop = true;
+        elt.autoplay = true;
+        elt.playsInline = true;
+        elt.preload = "auto";
+        elt.setAttribute("muted", "");
+        elt.setAttribute("playsinline", "");
+        elt.setAttribute("webkit-playsinline", "");
+
+        const tryPlay = (reason) => {
+          try {
+            const promise = elt.play();
+            this.telemetry.event(`VIDEO PLAY REQUEST ${reason}`);
+            if (promise && typeof promise.then === "function") {
+              promise
+                .then(() => {
+                  this.setVideoState("PLAYING");
+                  activate(video);
+                })
+                .catch((error) => {
+                  this.setVideoState("PLAY_BLOCKED");
+                  this.telemetry.event(`VIDEO PLAY BLOCKED ${error && error.name ? error.name : "ERROR"}`);
+                });
+            }
+          } catch (error) {
+            this.setVideoState("PLAY_ERROR");
+            this.telemetry.event(`VIDEO PLAY ERROR ${error.message || "UNKNOWN"}`);
+          }
+        };
+
+        elt.addEventListener("loadedmetadata", () => {
+          this.videoReadyState = elt.readyState;
+          this.setVideoState("METADATA");
+        }, { once: true });
+
+        elt.addEventListener("loadeddata", () => {
+          this.videoReadyState = elt.readyState;
+          this.setVideoState("LOADED_DATA");
+          activate(video);
+        }, { once: true });
+
+        elt.addEventListener("canplay", () => {
+          this.videoReadyState = elt.readyState;
+          this.setVideoState("CAN_PLAY");
+          activate(video);
+          if (elt.paused) tryPlay("CANPLAY");
+        }, { once: true });
+
+        elt.addEventListener("playing", () => {
+          this.videoReadyState = elt.readyState;
+          this.setVideoState("PLAYING");
+          activate(video);
+        });
+
+        elt.addEventListener("waiting", () => this.setVideoState("BUFFERING"));
+        elt.addEventListener("stalled", () => this.setVideoState("STALLED"));
+        elt.addEventListener("error", () => {
+          const code = elt.error ? elt.error.code : 0;
+          this.setVideoState(`ERROR_${code || "UNKNOWN"}`);
+          this.telemetry.event(`VIDEO ERROR ${label} CODE ${code || "?"}`);
+          finish();
+        }, { once: true });
+
+        // This immediate native play request is intentional. For the first clip
+        // it executes inside the original pointer gesture. Later clip switches
+        // remain eligible for autoplay because the element is genuinely muted.
+        tryPlay("GESTURE/AUTO");
+
+        // 13–15 MB test clips can need more than seven seconds on a phone. Keep
+        // the procedural source visible while loading rather than aborting early.
+        timeoutId = setTimeout(() => {
+          if (!activated) {
+            this.setVideoState("TIMEOUT");
+            this.telemetry.event(`VIDEO TIMEOUT ${label}`);
+            finish();
+          }
+        }, 20000);
+      });
+    } finally {
+      this.videoPending = false;
+    }
+  }
+
+  setVideoState(next) {
+    if (next === this.videoState) return;
+    this.videoState = String(next);
   }
 
   async switchImage(index, makeBase = false) {
@@ -220,6 +334,8 @@ class P5LabMediaManager {
       sourceLabel: this.sourceLabel,
       videoIndex: this.currentVideoIndex,
       imageIndex: this.currentImageIndex,
+      videoState: this.videoState,
+      videoReadyState: this.videoReadyState,
     };
   }
 }
