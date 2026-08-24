@@ -8,7 +8,7 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.1.0",
+    version: "0.1.1",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
