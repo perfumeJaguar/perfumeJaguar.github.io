@@ -1,12 +1,15 @@
 /**
- * P5 MEDIA LAB 01 — MEDIA MANAGER
+ * P5 MEDIA LAB 01 — MEDIA MANAGER v0.4.0
  *
- * v0.3.0 removes the decorative procedural fallback. During media loading the
- * work now keeps the last valid visual source (or black before the first source)
- * instead of showing a synthetic pink/purple signal unrelated to the user's media.
- *
- * Still images are preloaded as a small 10-image archive so photo modes can cut,
- * blend and tile them at 10–20+ changes/sec without network stalls.
+ * Important still-image policy:
+ * - p5 loadImage() is wrapped in an explicit callback Promise. Do not rely on
+ *   `await loadImage(path)` as if it were a stable Promise API.
+ * - Images load through a small worker pool instead of all at once. This avoids
+ *   mobile Chrome/network bursts that previously left only a few usable images.
+ * - imagePool keeps asset indexes stable; failed or pending slots remain null.
+ * - With the current ten low-resolution images all assets remain resident. The
+ *   same code supports a much larger manifest; memory policy can later become a
+ *   rolling working set without rewriting visual presets.
  */
 class P5LabMediaManager {
   constructor(assets, config, telemetry) {
@@ -19,8 +22,12 @@ class P5LabMediaManager {
     this.currentVideoBlobUrl = null;
     this.currentImage = null;
     this.currentImageIndex = -1;
+
     this.imageCache = new Map();
-    this.imagePool = [];
+    this.imagePool = new Array(this.assets.images.length).fill(null);
+    this.imageLoadedCount = 0;
+    this.imageFailedCount = 0;
+    this.imagePreloadPromise = null;
 
     this.blackFallback = null;
     this.currentSource = null;
@@ -46,7 +53,7 @@ class P5LabMediaManager {
     this.telemetry.event("BLACK FALLBACK READY");
 
     if (this.config.preloadAllImages && this.assets.images.length) {
-      this.preloadImages();
+      this.imagePreloadPromise = this.preloadImagesBounded();
     }
 
     if (this.config.useBlobVideoLoader && this.assets.videos.length > 0 && this.config.preferVideo) {
@@ -54,24 +61,73 @@ class P5LabMediaManager {
     }
   }
 
-  async preloadImages() {
-    this.telemetry.event(`IMAGE PRELOAD ${this.assets.images.length}`);
-    const jobs = this.assets.images.map(async (path, index) => {
+  loadImageAsync(path) {
+    return new Promise((resolve, reject) => {
       try {
-        const img = await loadImage(path);
-        this.imageCache.set(path, img);
-        this.imagePool[index] = img;
-        if (!this.currentImage) {
-          this.currentImage = img;
-          this.currentImageIndex = index;
-        }
-      } catch (_) {
-        this.telemetry.event(`IMAGE ERROR ${P5LabUtils.basename(path)}`);
+        loadImage(
+          path,
+          (img) => resolve(img),
+          (error) => reject(error || new Error("IMAGE_LOAD_FAILED")),
+        );
+      } catch (error) {
+        reject(error);
       }
     });
-    await Promise.allSettled(jobs);
-    this.imagePool = this.imagePool.filter(Boolean);
-    this.telemetry.event(`IMAGE POOL READY ${this.imagePool.length}`);
+  }
+
+  async preloadImagesBounded() {
+    const total = this.assets.images.length;
+    const concurrency = Math.max(1, Math.min(6, Number(this.config.imagePreloadConcurrency) || 3));
+    let cursor = 0;
+
+    this.telemetry.event(`IMAGE PRELOAD START ${total} / ${concurrency} WORKERS`);
+
+    const worker = async () => {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= total) return;
+
+        const path = this.assets.images[index];
+        try {
+          const img = await this.loadImageAsync(path);
+          this.imagePool[index] = img;
+          this.imageCache.set(path, img);
+          this.imageLoadedCount += 1;
+
+          if (!this.currentImage) {
+            this.currentImage = img;
+            this.currentImageIndex = index;
+          }
+
+          this.telemetry.event(`IMAGE READY ${index + 1}/${total} ${P5LabUtils.basename(path)}`);
+          this.trimImageCacheIfNeeded();
+        } catch (_) {
+          this.imageFailedCount += 1;
+          this.telemetry.event(`IMAGE ERROR ${index + 1}/${total} ${P5LabUtils.basename(path)}`);
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, total) }, () => worker());
+    await Promise.all(workers);
+    this.telemetry.event(`IMAGE POOL READY ${this.imageLoadedCount}/${total}`);
+  }
+
+  trimImageCacheIfNeeded() {
+    const limit = Math.max(1, Number(this.config.imageCacheLimit) || this.assets.images.length);
+    // Current build intentionally allows enough capacity for the whole planned
+    // archive. If a future 50-image test needs a rolling set, change this policy
+    // here rather than letting visual code know about loading/eviction.
+    if (this.imageCache.size <= limit) return;
+
+    for (const [path, img] of this.imageCache.entries()) {
+      const index = this.assets.images.indexOf(path);
+      if (img === this.currentImage) continue;
+      this.imageCache.delete(path);
+      if (index >= 0) this.imagePool[index] = null;
+      if (this.imageCache.size <= limit) break;
+    }
   }
 
   async start() {
@@ -79,6 +135,8 @@ class P5LabMediaManager {
     this.started = true;
     this.lastImageSwitchMs = millis();
 
+    // Do not block start on the complete photo archive. At least one image will
+    // appear as soon as its worker finishes, while video/audio remain responsive.
     if (this.assets.videos.length > 0 && this.config.preferVideo) {
       await this.switchVideo(0);
       this.lastSourceSwitchMs = millis();
@@ -93,19 +151,41 @@ class P5LabMediaManager {
     if (this.currentVideo && this.currentVideo.elt) {
       const elt = this.currentVideo.elt;
       this.videoReadyState = Number(elt.readyState) || 0;
-      if (!elt.paused && this.videoReadyState >= 2 && this.videoState !== "PLAYING") this.setVideoState("PLAYING");
+      if (!elt.paused && this.videoReadyState >= 2 && this.videoState !== "PLAYING") {
+        this.setVideoState("PLAYING");
+      }
     }
 
     const now = millis();
-    if (this.assets.videos.length && !this.videoPending && now - this.lastSourceSwitchMs > P5LAB_CONFIG.app.sourceSwitchSec * 1000) {
+    if (
+      this.assets.videos.length &&
+      !this.videoPending &&
+      now - this.lastSourceSwitchMs > P5LAB_CONFIG.app.sourceSwitchSec * 1000
+    ) {
       const next = (this.currentVideoIndex + 1) % this.assets.videos.length;
       this.switchVideo(next).finally(() => { this.lastSourceSwitchMs = millis(); });
     }
 
-    if (this.assets.images.length && !this.pendingImage && now - this.lastImageSwitchMs > P5LAB_CONFIG.app.imageSwitchSec * 1000) {
-      const next = (this.currentImageIndex + 1) % this.assets.images.length;
-      this.switchImage(next, false);
+    if (
+      this.assets.images.length &&
+      !this.pendingImage &&
+      now - this.lastImageSwitchMs > P5LAB_CONFIG.app.imageSwitchSec * 1000
+    ) {
+      this.advanceToNextLoadedImage();
       this.lastImageSwitchMs = now;
+    }
+  }
+
+  advanceToNextLoadedImage() {
+    if (!this.imageLoadedCount) return;
+    const total = this.imagePool.length;
+    for (let step = 1; step <= total; step += 1) {
+      const index = (this.currentImageIndex + step + total) % total;
+      const img = this.imagePool[index];
+      if (!img) continue;
+      this.currentImage = img;
+      this.currentImageIndex = index;
+      return;
     }
   }
 
@@ -156,23 +236,45 @@ class P5LabMediaManager {
 
       await new Promise((resolve) => {
         let done = false;
-        const finish = () => { if (!done) { done = true; clearTimeout(timeoutId); resolve(); } };
-        const timeoutId = setTimeout(() => { this.setVideoState("DECODE_TIMEOUT"); finish(); }, 15000);
+        const finish = () => {
+          if (!done) {
+            done = true;
+            clearTimeout(timeoutId);
+            resolve();
+          }
+        };
+        const timeoutId = setTimeout(() => {
+          this.setVideoState("DECODE_TIMEOUT");
+          finish();
+        }, 15000);
+
         const video = createVideo(mediaUrl);
         const elt = video.elt;
         video.hide();
-        Object.assign(elt, { muted: true, defaultMuted: true, volume: 0, loop: true, autoplay: true, playsInline: true, preload: "auto" });
+        Object.assign(elt, {
+          muted: true,
+          defaultMuted: true,
+          volume: 0,
+          loop: true,
+          autoplay: true,
+          playsInline: true,
+          preload: "auto",
+        });
         elt.setAttribute("muted", "");
         elt.setAttribute("playsinline", "");
 
         const activate = () => {
           if (done || !elt || elt.readyState < 2) return;
           if (this.currentVideo && this.currentVideo !== video) {
-            try { this.currentVideo.stop(); this.currentVideo.remove(); } catch (_) {}
+            try {
+              this.currentVideo.stop();
+              this.currentVideo.remove();
+            } catch (_) {}
           }
           if (this.currentVideoBlobUrl && this.currentVideoBlobUrl !== nextBlobUrl) {
             try { URL.revokeObjectURL(this.currentVideoBlobUrl); } catch (_) {}
           }
+
           this.currentVideo = video;
           this.currentVideoIndex = normalized;
           this.currentVideoBlobUrl = nextBlobUrl;
@@ -188,36 +290,47 @@ class P5LabMediaManager {
         ["loadeddata", "canplay", "playing"].forEach((name) => elt.addEventListener(name, activate));
         elt.addEventListener("waiting", () => this.setVideoState("BUFFERING"));
         elt.addEventListener("stalled", () => this.setVideoState("STALLED"));
-        elt.addEventListener("error", () => { this.setVideoState("ERROR"); finish(); }, { once: true });
+        elt.addEventListener("error", () => {
+          this.setVideoState("ERROR");
+          finish();
+        }, { once: true });
 
         try {
-          const p = elt.play();
-          if (p && p.catch) p.catch(() => this.setVideoState("PLAY_BLOCKED"));
+          const playPromise = elt.play();
+          if (playPromise && playPromise.catch) playPromise.catch(() => this.setVideoState("PLAY_BLOCKED"));
         } catch (_) {}
       });
     } catch (_) {
       this.setVideoState("LOAD_ERROR");
-      if (nextBlobUrl) try { URL.revokeObjectURL(nextBlobUrl); } catch (_) {}
+      if (nextBlobUrl) {
+        try { URL.revokeObjectURL(nextBlobUrl); } catch (_) {}
+      }
     } finally {
       this.videoPending = false;
     }
   }
 
-  setVideoState(next) { this.videoState = String(next); }
+  setVideoState(next) {
+    this.videoState = String(next);
+  }
 
   async switchImage(index, makeBase = false) {
     if (!this.assets.images.length || this.pendingImage) return;
     this.pendingImage = true;
+
     const normalized = ((index % this.assets.images.length) + this.assets.images.length) % this.assets.images.length;
     const path = this.assets.images[normalized];
 
     try {
-      let img = this.imageCache.get(path) || this.imagePool[normalized];
+      let img = this.imagePool[normalized] || this.imageCache.get(path);
       if (!img) {
-        img = await loadImage(path);
-        this.imageCache.set(path, img);
+        img = await this.loadImageAsync(path);
+        if (!this.imagePool[normalized]) this.imageLoadedCount += 1;
         this.imagePool[normalized] = img;
+        this.imageCache.set(path, img);
+        this.trimImageCacheIfNeeded();
       }
+
       this.currentImage = img;
       this.currentImageIndex = normalized;
       if (makeBase || !this.currentVideo) {
@@ -232,9 +345,17 @@ class P5LabMediaManager {
     }
   }
 
-  getSource() { return this.currentSource || this.blackFallback; }
-  getCurrentImage() { return this.currentImage; }
-  getImagePool() { return this.imagePool.filter(Boolean); }
+  getSource() {
+    return this.currentSource || this.currentImage || this.blackFallback;
+  }
+
+  getCurrentImage() {
+    return this.currentImage;
+  }
+
+  getImagePool() {
+    return this.imagePool.filter(Boolean);
+  }
 
   snapshot() {
     return {
@@ -245,7 +366,9 @@ class P5LabMediaManager {
       videoState: this.videoState,
       videoReadyState: this.videoReadyState,
       videoBytes: this.videoBytes,
-      imagePoolSize: this.imagePool.filter(Boolean).length,
+      imagePoolSize: this.imageLoadedCount,
+      imagePoolTotal: this.assets.images.length,
+      imageFailedCount: this.imageFailedCount,
     };
   }
 }
