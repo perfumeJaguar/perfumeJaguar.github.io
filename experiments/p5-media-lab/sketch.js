@@ -17,10 +17,16 @@ let interaction;
 let visualEngine;
 let appStarted = false;
 let resizeTimer = null;
+let runtimeFailed = false;
+let lastViewportW = 0;
+let lastViewportH = 0;
 
 async function setup() {
   try {
     const viewport = P5LabUtils.viewportSize();
+    lastViewportW = viewport.width;
+    lastViewportH = viewport.height;
+
     pixelDensity(P5LAB_CONFIG.render.pixelDensity);
     const canvas = createCanvas(viewport.width, viewport.height);
     canvas.parent("app");
@@ -33,6 +39,8 @@ async function setup() {
     audioEngine = new P5LabAudioEngine(P5LAB_ASSETS.audio, P5LAB_CONFIG.audio, telemetry);
     visualEngine = new P5LabVisualEngine(P5LAB_CONFIG.visual, telemetry);
 
+    // mediaManager.setup() immediately starts priming the first video Blob while
+    // the MP3 loads. This runs concurrently with the awaited audio setup.
     mediaManager.setup();
     analyzer.setup(viewport.width, viewport.height);
     visualEngine.setup(viewport.width, viewport.height);
@@ -51,26 +59,37 @@ async function setup() {
 }
 
 function draw() {
-  if (!telemetry || !mediaManager || !analyzer || !audioEngine || !interaction || !visualEngine) {
-    background(0);
-    return;
+  if (runtimeFailed) return;
+
+  try {
+    if (!telemetry || !mediaManager || !analyzer || !audioEngine || !interaction || !visualEngine) {
+      background(0);
+      return;
+    }
+
+    interaction.update();
+    mediaManager.update(interaction.snapshot(), audioEngine.snapshot());
+    const source = mediaManager.getSource();
+    const analysis = analyzer.update(source, interaction.snapshot());
+    const audio = audioEngine.update(analysis, interaction.snapshot());
+
+    visualEngine.render(
+      source,
+      mediaManager.getCurrentImage(),
+      analysis,
+      audio,
+      interaction.snapshot(),
+    );
+
+    telemetry.render(makeSnapshot());
+  } catch (error) {
+    // p5 normally sends runtime exceptions only to the console. On a phone that
+    // looks exactly like a frozen artwork. Convert any draw-loop exception into a
+    // visible fatal screen so the next failure is immediately diagnosable.
+    runtimeFailed = true;
+    showFatal(error);
+    try { noLoop(); } catch (_) {}
   }
-
-  interaction.update();
-  mediaManager.update(interaction.snapshot(), audioEngine.snapshot());
-  const source = mediaManager.getSource();
-  const analysis = analyzer.update(source, interaction.snapshot());
-  const audio = audioEngine.update(analysis, interaction.snapshot());
-
-  visualEngine.render(
-    source,
-    mediaManager.getCurrentImage(),
-    analysis,
-    audio,
-    interaction.snapshot(),
-  );
-
-  telemetry.render(makeSnapshot());
 }
 
 function makeSnapshot() {
@@ -96,10 +115,6 @@ function bindStartScreen() {
     appStarted = true;
     telemetry.event("USER GESTURE ACCEPTED");
 
-    // Gesture-gated APIs must be invoked before *any* awaited work. Previously
-    // fullscreen was awaited first, which could consume/expire transient user
-    // activation and leave userStartAudio()/video playback suspended forever on
-    // mobile Chrome. Start audio and media immediately and independently.
     let audioStart;
     let mediaStart;
 
@@ -119,8 +134,8 @@ function bindStartScreen() {
 
     screen.classList.add("is-hidden");
 
-    // Fullscreen is best-effort only. It deliberately comes *after* audio/video
-    // play requests because media playback is more important than hiding browser UI.
+    // Fullscreen is disabled in the current stability baseline. This branch is
+    // retained so it can be restored later by changing config.js only.
     if (P5LAB_CONFIG.app.requestFullscreenOnStart) {
       try {
         const root = document.documentElement;
@@ -137,22 +152,20 @@ function bindStartScreen() {
               .then(() => telemetry.event("FULLSCREEN ACTIVE"))
               .catch(() => telemetry.event("FULLSCREEN UNAVAILABLE / VIEWPORT MODE"));
           }
-        } else {
-          telemetry.event("FULLSCREEN UNAVAILABLE / VIEWPORT MODE");
         }
       } catch (_) {
         telemetry.event("FULLSCREEN UNAVAILABLE / VIEWPORT MODE");
       }
+    } else {
+      telemetry.event("FULLSCREEN BYPASSED / STABILITY MODE");
     }
 
     Promise.allSettled([
       Promise.resolve(audioStart),
       Promise.resolve(mediaStart),
     ]).then((results) => {
-      const audioResult = results[0];
-      const mediaResult = results[1];
-      telemetry.event(`AUDIO START ${audioResult.status}`);
-      telemetry.event(`MEDIA START ${mediaResult.status}`);
+      telemetry.event(`AUDIO START ${results[0].status}`);
+      telemetry.event(`MEDIA START ${results[1].status}`);
     });
   };
 
@@ -165,23 +178,43 @@ function bindStartScreen() {
 function bindViewportEvents() {
   const scheduleResize = () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(rebuildForViewport, 100);
+    resizeTimer = setTimeout(rebuildForViewport, 180);
   };
 
+  // Keep the stability build conservative. window.resize + orientationchange are
+  // sufficient for portrait/desktop adaptation; visualViewport can fire a rapid
+  // stream of events while mobile browser chrome animates.
   window.addEventListener("resize", scheduleResize);
   window.addEventListener("orientationchange", scheduleResize);
   document.addEventListener("fullscreenchange", scheduleResize);
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", scheduleResize);
-  }
 }
 
 function rebuildForViewport() {
+  if (!analyzer || !visualEngine || !telemetry) return;
+
   const viewport = P5LabUtils.viewportSize();
-  resizeCanvas(viewport.width, viewport.height);
-  analyzer.rebuild(viewport.width, viewport.height);
-  visualEngine.rebuild(viewport.width, viewport.height);
-  telemetry.event(`VIEWPORT ${viewport.width}X${viewport.height}`);
+
+  // Ignore 1px browser-chrome oscillations and duplicate resize notifications.
+  if (
+    Math.abs(viewport.width - lastViewportW) < 2 &&
+    Math.abs(viewport.height - lastViewportH) < 2
+  ) {
+    return;
+  }
+
+  lastViewportW = viewport.width;
+  lastViewportH = viewport.height;
+
+  try {
+    resizeCanvas(viewport.width, viewport.height);
+    analyzer.rebuild(viewport.width, viewport.height);
+    visualEngine.rebuild(viewport.width, viewport.height);
+    telemetry.event(`VIEWPORT ${viewport.width}X${viewport.height}`);
+    if (!isLooping()) loop();
+  } catch (error) {
+    runtimeFailed = true;
+    showFatal(error);
+  }
 }
 
 function mouseMoved() {
@@ -228,6 +261,7 @@ function touchEnded(event) {
 function showFatal(error) {
   console.error(error);
   const el = document.getElementById("fatal-message");
+  if (!el) return;
   el.hidden = false;
   el.textContent = `P5 MEDIA LAB / FATAL ERROR\n\n${error && error.stack ? error.stack : error}`;
 }
