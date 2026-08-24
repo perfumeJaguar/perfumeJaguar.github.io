@@ -1,17 +1,9 @@
 /**
  * P5 MEDIA LAB 01 — ASSET MANIFEST
  *
- * Media filenames for the first real-media test batch are fixed here.
- * Upload the files into the matching ./assets/ subdirectories; no other code
- * needs to change when all filenames below are present.
- *
- * Batch 01:
- * - 6 short H.264/MP4 video clips
- * - 10 JPEG still images
- * - 1 MP3 original composition
- *
- * The runtime still has procedural visual/audio fallbacks if an asset category
- * is unavailable, which is useful while uploads are incomplete.
+ * Batch 01 is registered from files that currently exist in the repository.
+ * Videos 5–6 are intentionally omitted until their uploads are present, so the
+ * running piece never wastes time on 404/timeout transitions during testing.
  */
 window.P5LAB_ASSETS = {
   videos: [
@@ -19,8 +11,6 @@ window.P5LAB_ASSETS = {
     "./assets/video/video_720p_2.mp4",
     "./assets/video/video_720p_3.mp4",
     "./assets/video/video_720p_4.mp4",
-    "./assets/video/video_720p_5.mp4",
-    "./assets/video/video_720p_6.mp4",
   ],
 
   images: [
