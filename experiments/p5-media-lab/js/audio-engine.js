@@ -1,11 +1,12 @@
 /**
- * AudioEngine demonstrates both file playback and synthesis.
- * Mapping philosophy:
- * - pointer-picked video luminance -> low-pass cutoff
- * - global motion -> delay feedback
- * - pointer X -> stereo pan
- * - pointer Y -> playback rate / distortion balance
- * - audio FFT -> visual engine (reverse direction)
+ * AudioEngine demonstrates file playback, analysis and image/gesture mappings.
+ *
+ * v0.1.2 introduces a safe dry-output baseline. The previous all-wet graph could
+ * report PLAYING while producing silence if any experimental effect node failed
+ * to route correctly on the mobile p5.sound 0.4.x stack. We now keep the actual
+ * music audible through a direct route, analyze the SoundFile itself, and still
+ * calculate all intended effect parameters for telemetry. The wet chain remains
+ * implemented and can be re-enabled by setting safeDryOutput:false in config.js.
  */
 class P5LabAudioEngine {
   constructor(assetPath, config, telemetry) {
@@ -50,6 +51,8 @@ class P5LabAudioEngine {
   async setup() {
     if (!this.config.enabled) return;
 
+    // Create the experimental nodes even in dry-safe mode so switching the wet
+    // graph back on later does not require another architectural rewrite.
     this.filter = new p5.Filter("lowpass");
     this.delay = new p5.Delay(0.18, 0.22);
     this.reverb = new p5.Reverb(this.config.reverbDecay);
@@ -59,8 +62,6 @@ class P5LabAudioEngine {
     }
 
     this.amp = new p5.Amplitude(0.88);
-
-    // p5.sound 0.4.x uses p5.FFT(fftSize); smoothing is configured separately.
     this.fft = new p5.FFT(128);
     try { this.fft.smooth(0.82); } catch (_) {}
 
@@ -73,7 +74,7 @@ class P5LabAudioEngine {
         this.telemetry.event(`AUDIO READY ${P5LabUtils.basename(this.assetPath)}`);
       } catch (error) {
         this.playState = "FILE_ERROR";
-        this.telemetry.event("AUDIO FILE FAILED / FALLBACK AVAILABLE");
+        this.telemetry.event(`AUDIO FILE FAILED ${error && error.message ? error.message : "UNKNOWN"}`);
       }
     }
   }
@@ -82,9 +83,7 @@ class P5LabAudioEngine {
     if (!this.config.enabled || this.started) return Promise.resolve();
     this.started = true;
 
-    // IMPORTANT: nothing that requires a user gesture may be placed after an
-    // awaited fullscreen promise. This method is called directly from pointerdown,
-    // so resume + play requests are issued immediately in the gesture call stack.
+    // Request AudioContext resume directly in the gesture call stack.
     try {
       const ctx = getAudioContext();
       this.contextState = ctx && ctx.state ? ctx.state.toUpperCase() : "UNKNOWN";
@@ -115,8 +114,6 @@ class P5LabAudioEngine {
       try { this.soundFile.setVolume(this.config.masterVolume); } catch (_) {}
 
       try {
-        // p5.sound 0.4.x separates the loop flag from starting playback.
-        // Official examples use loop(true) followed by play() from a gesture.
         this.soundFile.loop(true);
         this.soundFile.play();
         this.playState = "PLAY_REQUESTED";
@@ -135,6 +132,21 @@ class P5LabAudioEngine {
   }
 
   routeSource(source) {
+    // Reliable baseline first: direct source -> master, analyzers read the source.
+    // Do not disconnect the SoundFile in safe mode; it is already connected to
+    // p5.sound's master output by default.
+    if (this.config.safeDryOutput) {
+      try {
+        this.amp.setInput(source);
+        this.fft.setInput(source);
+        this.telemetry.event("AUDIO ROUTE SAFE_DRY");
+        return;
+      } catch (error) {
+        this.telemetry.event(`AUDIO SAFE ROUTE ERROR ${error.message || "ERROR"}`);
+      }
+    }
+
+    // Experimental wet graph retained for later reactivation.
     try {
       source.disconnect();
       this.filter.disconnect();
@@ -153,9 +165,9 @@ class P5LabAudioEngine {
         this.reverb.connect();
       }
 
-      this.amp.setInput(this.distortionFx || this.reverb);
-      this.fft.setInput(this.distortionFx || this.reverb);
-      this.telemetry.event("AUDIO ROUTE READY");
+      this.amp.setInput(source);
+      this.fft.setInput(source);
+      this.telemetry.event("AUDIO ROUTE WET");
     } catch (error) {
       this.telemetry.event(`AUDIO ROUTE FALLBACK ${error.message || "ERROR"}`);
       try {
@@ -177,21 +189,9 @@ class P5LabAudioEngine {
     this.oscB.start();
 
     try {
-      this.oscA.disconnect();
-      this.oscB.disconnect();
-      this.oscA.connect(this.filter);
-      this.oscB.connect(this.filter);
-      this.filter.disconnect();
-      this.delay.disconnect();
-      this.reverb.disconnect();
-      this.filter.connect(this.delay);
-      this.delay.connect(this.reverb);
-      this.reverb.connect();
-      this.amp.setInput(this.reverb);
-      this.fft.setInput(this.reverb);
-    } catch (_) {
-      this.telemetry.event("SYNTH ROUTE DEGRADED");
-    }
+      this.amp.setInput(this.oscA);
+      this.fft.setInput(this.oscA);
+    } catch (_) {}
   }
 
   update(analysis, interaction) {
@@ -228,15 +228,24 @@ class P5LabAudioEngine {
         this.telemetry.event(`AUDIO STATE ${this.playState}`);
       }
 
-      try { this.filter.set(filterHz, 1.2 + motion * 7); } catch (_) {}
-      try { this.delay.delayTime(delayTime); } catch (_) {}
-      try { this.delay.feedback(delayFeedback); } catch (_) {}
-      try { this.delay.filter(Math.min(14000, filterHz * 1.35), 0.7 + motion * 3); } catch (_) {}
-      try { if (this.distortionFx) this.distortionFx.set(distortion, "2x"); } catch (_) {}
+      // In safeDryOutput mode we deliberately do not mutate the effect graph on
+      // every frame. Target values remain visible in telemetry. Rate/pan are safe
+      // direct SoundFile parameters and remain interactive.
+      if (!this.config.safeDryOutput) {
+        try { this.filter.set(filterHz, 1.2 + motion * 7); } catch (_) {}
+        try { this.delay.delayTime(delayTime); } catch (_) {}
+        try { this.delay.feedback(delayFeedback); } catch (_) {}
+        try { this.delay.filter(Math.min(14000, filterHz * 1.35), 0.7 + motion * 3); } catch (_) {}
+        try { if (this.distortionFx) this.distortionFx.set(distortion, "2x"); } catch (_) {}
+      }
 
-      if (this.soundFile && this.soundFile.isPlaying()) {
-        try { this.soundFile.rate(rate); } catch (_) {}
-        try { this.soundFile.pan(pan); } catch (_) {}
+      if (this.soundFile) {
+        try {
+          if (this.soundFile.isPlaying()) {
+            this.soundFile.rate(rate);
+            this.soundFile.pan(pan);
+          }
+        } catch (_) {}
       }
 
       if (this.usingFallback && this.oscA && this.oscB) {
@@ -262,7 +271,10 @@ class P5LabAudioEngine {
         mid = P5LabUtils.clamp(this.fft.getEnergy("mid") / 255, 0, 1);
         treble = P5LabUtils.clamp(this.fft.getEnergy("treble") / 255, 0, 1);
         waveform = this.fft.waveform();
-      } catch (_) {}
+      } catch (error) {
+        // Analysis is non-critical. Playback must continue even if one analyzer
+        // method changes across p5.sound versions.
+      }
     }
 
     this.data = {
@@ -288,6 +300,7 @@ class P5LabAudioEngine {
       state: this.playState,
       contextState: this.contextState,
       fileLoaded: this.fileLoaded,
+      safeDryOutput: !!this.config.safeDryOutput,
     };
   }
 }
