@@ -4,6 +4,14 @@ A mobile-first audiovisual test work for exploring the practical range of **p5.j
 
 This is intentionally a **media-art laboratory rather than a finished artwork**. It exposes many techniques at once so individual behaviors can later be removed, isolated, recombined, or developed into separate works.
 
+## Project boundary
+
+This is an **independent media-art project**, not part of the portfolio site's visual/design system. It is currently hosted under `perfumeJaguar.github.io/experiments/` only for convenient GitHub Pages deployment.
+
+It may later move to the `perfumeJaguar/mediaArt` repository. Until that is explicitly requested, keep it in the current location and treat this folder as a self-contained project.
+
+For the authoritative current implementation state, decisions, debugging history, migration status, and next steps, read `PROJECT_STATE.md` first.
+
 ## Core idea
 
 The project treats moving image as both an image and a control signal.
@@ -28,6 +36,8 @@ The project runs even before personal assets are added. When `assets.js` is empt
 - two quiet p5 oscillators as a diagnostic audio source.
 
 This fallback is deliberate: code structure, interaction, telemetry, visual presets, pixel analysis, FFT, effects, fullscreen behavior, and mobile layout can be tested immediately.
+
+As of 2026-08-25 the GitHub Pages build has been confirmed by the user to start and run after resolving a p5.sound 0.4.1 FFT-constructor incompatibility and adding local-script cache busting. See `PROJECT_STATE.md` for the exact debugging record.
 
 ## Start / run
 
@@ -56,23 +66,15 @@ assets/
 └── audio/
 ```
 
-Add file paths to `assets.js`.
+The first registered real-media batch currently uses these exact names:
 
-```js
-window.P5LAB_ASSETS = {
-  videos: [
-    "./assets/video/video01.mp4",
-    "./assets/video/video02.mp4",
-  ],
-  images: [
-    "./assets/images/photo01.jpg",
-    "./assets/images/photo02.webp",
-  ],
-  audio: "./assets/audio/music.mp3",
-};
+```text
+assets/video/video_720p_1.mp4 ... video_720p_6.mp4
+assets/images/image_low_1.jpg ... image_low_10.jpg
+assets/audio/audio_low1.mp3
 ```
 
-See `ASSET_GUIDE.md` for media specifications.
+The canonical list is `assets.js`. See `ASSET_GUIDE.md` for preparation guidance and `PROJECT_STATE.md` for the current batch/status.
 
 ## Visual modes
 
@@ -161,4 +163,4 @@ This resembles using lower-resolution TOPs for analysis/control paths in TouchDe
 - Multiple high-resolution video decoders are deliberately avoided; only one active video is kept alive.
 - The `OVERLOAD` preset is expected to be heavier than the others, especially on old phones.
 
-For deeper architecture and edit points, read `ARCHITECTURE.md`.
+For deeper architecture and edit points, read `ARCHITECTURE.md`. For continuity and current project state, read `PROJECT_STATE.md`.
