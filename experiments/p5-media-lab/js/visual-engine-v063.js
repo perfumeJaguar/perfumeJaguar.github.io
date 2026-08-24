@@ -1,20 +1,26 @@
 /** P5 MEDIA LAB 01 — VISUAL ENGINE v0.6.3
- * Same v0.6.1 engine, with touch rupture mid-gray bands remapped to muted red.
+ * Touch rupture palette:
+ *   black -> dark gray -> vivid red -> near-white
+ *
+ * The image is converted to grayscale + high contrast + 4-level posterize FIRST.
+ * Only the upper-middle luminance band is recolored red. The darker middle band
+ * deliberately stays neutral gray, so red appears as a narrow accent around
+ * brighter threshold boundaries instead of tinting the whole image.
  */
-// Load v0.6.1 first; this patch subclasses it without duplicating the engine.
 class P5LabVisualEngineV063 extends P5LabVisualEngine {
   applyTouchRupture(src,i,a,t){
     const out=this.ruptureBuffer,scratch=this.ruptureScratch;out.clear();scratch.clear();
     scratch.push();const ctx=scratch.drawingContext;ctx.save();ctx.filter=`grayscale(1) contrast(${this.config.touchRuptureContrast})`;scratch.image(src,0,0,scratch.width,scratch.height);ctx.restore();scratch.pop();
     try{scratch.filter(POSTERIZE,this.config.touchRupturePosterizeLevels);}catch(_){}
 
-    // Re-map the four luminance levels: black / muted dark red / muted red / white.
+    // Four luminance bands after grayscale/posterize:
+    // 0: black, 1: dark neutral gray, 2: saturated red, 3: near-white.
     scratch.loadPixels();
     for(let p=0;p<scratch.pixels.length;p+=4){
       const l=scratch.pixels[p];
       if(l<64){scratch.pixels[p]=0;scratch.pixels[p+1]=0;scratch.pixels[p+2]=0;}
-      else if(l<128){scratch.pixels[p]=92;scratch.pixels[p+1]=48;scratch.pixels[p+2]=48;}
-      else if(l<192){scratch.pixels[p]=142;scratch.pixels[p+1]=72;scratch.pixels[p+2]=68;}
+      else if(l<128){scratch.pixels[p]=72;scratch.pixels[p+1]=72;scratch.pixels[p+2]=72;}
+      else if(l<192){scratch.pixels[p]=230;scratch.pixels[p+1]=22;scratch.pixels[p+2]=18;}
       else{scratch.pixels[p]=245;scratch.pixels[p+1]=245;scratch.pixels[p+2]=242;}
     }
     scratch.updatePixels();
