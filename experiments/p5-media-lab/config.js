@@ -2,12 +2,11 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.5.0",
+    version: "0.6.0",
     targetFps: 60,
     requestFullscreenOnStart: false,
     preventContextMenu: true,
     modeDurationSec: 11,
-    sourceSwitchSec: 9,
     imageSwitchSec: 0.10,
   },
 
@@ -23,14 +22,22 @@ window.P5LAB_CONFIG = {
   },
 
   media: {
-    videosMuted: true,
-    autoplayAfterStart: true,
-    preferVideo: true,
-    useBlobVideoLoader: true,
-    videoFetchTimeoutMs: 30000,
+    // Photo-only study for now. Existing video files stay in the repository but
+    // are not fetched, decoded or rendered by this build.
+    videosEnabled: false,
+
+    // GitHub Pages cannot list a directory by itself. On this public repository
+    // the browser asks GitHub's Contents API for assets/images, filters supported
+    // image extensions, then preloads that discovered archive before START is enabled.
+    autoDiscoverImages: true,
+    githubOwner: "perfumeJaguar",
+    githubRepo: "perfumeJaguar.github.io",
+    githubBranch: "main",
+    githubImageDir: "experiments/p5-media-lab/assets/images",
+    imageExtensions: ["jpg", "jpeg", "png", "webp", "gif", "avif"],
     preloadAllImages: true,
     imagePreloadConcurrency: 3,
-    imageCacheLimit: 64,
+    imageCacheLimit: 96,
   },
 
   interaction: {
@@ -41,57 +48,60 @@ window.P5LAB_CONFIG = {
 
   audio: {
     enabled: true,
-    masterVolume: 0.78,
+    masterVolume: 0.82,
     directNativeOutput: true,
     pcmWindowSize: 512,
     waveformPoints: 128,
 
-    // Rate is intentionally subtle now. Touch is primarily assigned to FX depth,
-    // not transport speed. Bright regions still move slightly faster than dark.
-    minRate: 0.965,
-    maxRate: 1.035,
-    lumaRateMin: 0.985,
-    lumaRateMax: 1.015,
-    pressRateBoost: 0.012,
+    // Transport barely moves; touch energy is spent on the wet FX layer instead.
+    minRate: 0.985,
+    maxRate: 1.015,
+    lumaRateMin: 0.99,
+    lumaRateMax: 1.01,
+    pressRateBoost: 0.006,
 
-    // Parallel wet layer. The native <audio> remains audible and untouched;
-    // decoded PCM is replayed through this separate effect graph.
     fxEnabled: true,
-    fxWetMin: 0.035,
-    fxWetMax: 0.42,
-    minFilterHz: 260,
-    maxFilterHz: 14500,
-    maxDelayTime: 0.48,
-    maxDelayFeedback: 0.68,
-    maxDistortion: 0.62,
+    fxWetMin: 0.025,
+    fxWetMax: 0.72,
+    minFilterHz: 120,
+    maxFilterHz: 12500,
+    maxDelayTime: 0.68,
+    maxDelayFeedback: 0.82,
+    maxDistortion: 0.88,
   },
 
   visual: {
     enabled: true,
 
-    // Longer recursive trail. Pressure now increases trail persistence rather
-    // than merely speeding up image changes.
-    feedbackScale: 0.996,
-    feedbackAlpha: 174,
+    // Every individual image draw gets its own crop state. 1x therefore still
+    // occurs naturally, while occasional frames can become heavily magnified.
+    sourceCropMinZoom: 1.0,
+    sourceCropMaxZoom: 2.65,
+    sourceCropTouchBoost: 0.45,
+    sourceCropPanFactor: 0.42,
+
+    // Touch slows image turnover only slightly; it mostly changes destruction.
+    touchTransitionSlowdown: 0.16,
+
+    feedbackScale: 0.994,
+    feedbackAlpha: 154,
     feedbackResolutionScaleMobile: 0.52,
     feedbackResolutionScaleDesktop: 0.72,
 
     mosaicColsMobile: 18,
     mosaicColsDesktop: 32,
     scanlineSpacing: 5,
-    photoCutMs: 92,
-    photoBurstMs: 38,
-    rgbTearMaxPx: 52,
+    photoCutMs: 90,
+    rgbTearMaxPx: 48,
     halationBlur: 5,
     vignetteStrength: 0.34,
 
-    // Global crop envelope applied to every still-image mode.
-    cropMinZoom: 1.18,
-    cropMaxZoom: 3.9,
-    cropPressBoost: 1.15,
-    cropOffsetScale: 0.95,
+    // Touch-only rupture: monochrome, brutal threshold/contrast, tearing and grain.
+    touchRuptureThresholdMin: 0.34,
+    touchRuptureThresholdMax: 0.66,
+    touchRuptureBands: 13,
 
-    // PHOTO_FEEDBACK stays first during tuning.
+    // Feedback stays first while it is being tuned.
     presets: [
       { name: "PHOTO_FEEDBACK_CROP", photoFeedback: true, feedback: true },
       { name: "PHOTO_RAPID_CROP", photoRapidCrop: true },
@@ -107,7 +117,6 @@ window.P5LAB_CONFIG = {
       { name: "LUMA_MONO", mosaic: "mono" },
       { name: "LUMA_DITHER", mosaic: "dither" },
       { name: "LUMA_PULSE", mosaic: "pulse" },
-      { name: "POSTER_AUDIO", base: true, posterize: true },
     ],
   },
 
