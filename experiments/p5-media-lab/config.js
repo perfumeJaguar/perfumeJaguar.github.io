@@ -8,13 +8,11 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.1.3",
+    version: "0.1.4",
     targetFps: 60,
 
-    // Temporarily disabled in the stability baseline. The previous mobile test
-    // consistently stalled immediately after fullscreen/viewport rebuilding.
-    // Once continuous playback is confirmed, fullscreen can be reintroduced
-    // without changing the audiovisual engine itself.
+    // Temporarily disabled in the stability baseline. Once continuous video and
+    // audio playback are confirmed, fullscreen can be reintroduced separately.
     requestFullscreenOnStart: false,
 
     preventContextMenu: true,
@@ -24,16 +22,10 @@ window.P5LAB_CONFIG = {
   },
 
   render: {
-    // Force density 1 for predictable pixel-analysis cost on Retina/mobile.
     pixelDensity: 1,
     background: 0,
-
-    // Internal visual buffers are intentionally capped. The final canvas still
-    // covers the full viewport; only the expensive processing resolution drops.
     maxBufferLongEdgeMobile: 900,
     maxBufferLongEdgeDesktop: 1280,
-
-    // CPU analysis happens at a much smaller resolution than display.
     analysisWidthMobile: 128,
     analysisWidthDesktop: 180,
     analysisEveryNFrames: 2,
@@ -45,10 +37,6 @@ window.P5LAB_CONFIG = {
     autoplayAfterStart: true,
     imageCacheLimit: 6,
     preferVideo: true,
-
-    // GitHub Pages / mobile MP4 progressive loading can remain at readyState 0
-    // for large files (especially when MP4 metadata is not at the front). In the
-    // test build we fetch one whole clip to a Blob first, then decode locally.
     useBlobVideoLoader: true,
     videoFetchTimeoutMs: 30000,
   },
@@ -64,11 +52,9 @@ window.P5LAB_CONFIG = {
     syntheticFallback: true,
     masterVolume: 0.72,
 
-    // Safe baseline: keep the music connected directly to the master output and
-    // run FFT/amplitude analysis from the SoundFile itself. This avoids letting
-    // one experimental effect node silence the complete graph. The effect target
-    // parameters are still calculated and shown in telemetry; the wet chain can
-    // be re-enabled after basic mobile playback is proven stable.
+    // v0.1.4: audible playback uses native HTMLAudioElement + Web Audio API.
+    // This deliberately bypasses p5.SoundFile output after mobile tests showed
+    // PLAYING/RUNNING states while the physical speaker output remained silent.
     safeDryOutput: true,
 
     minFilterHz: 140,
@@ -86,21 +72,14 @@ window.P5LAB_CONFIG = {
     enabled: true,
     feedbackScale: 0.985,
     feedbackAlpha: 72,
-
-    // Slice rendering redraws the source once per slice. Keep the portrait/mobile
-    // count deliberately lower; desktop has more GPU/CPU headroom and screen area.
     sliceCountMobile: 12,
     sliceCountDesktop: 18,
-
     mosaicColsMobile: 18,
     mosaicColsDesktop: 32,
     maxParticlesMobile: 160,
     maxParticlesDesktop: 320,
     scanlineSpacing: 5,
     rgbSplitMaxPx: 20,
-
-    // Each preset deliberately emphasizes a different p5 capability.
-    // Presets cycle automatically; no extra buttons are required.
     presets: [
       { name: "PICKUP", base: true, rgbSplit: false, slices: false, mosaic: false, feedback: false, particles: false, waveform: true, posterize: false },
       { name: "RGB_FEEDBACK", base: true, rgbSplit: true, slices: false, mosaic: false, feedback: true, particles: false, waveform: false, posterize: false },
