@@ -1,9 +1,20 @@
 /**
- * P5 MEDIA LAB 01 — AUDIO ENGINE v0.3.0
+ * P5 MEDIA LAB 01 — AUDIO ENGINE v0.4.0
  *
- * Audible output remains the proven direct HTMLAudioElement path. A separate
- * decoded PCM copy of the same MP3 is used for analysis only, so FFT/RMS-style
- * control data can return without routing the audible media through Web Audio.
+ * Audible output remains the proven direct HTMLAudioElement path. A separately
+ * decoded PCM copy of the same MP3 supplies analysis values without touching the
+ * physical output route.
+ *
+ * Audible interaction in this build:
+ * - pointer Y: top = slower, bottom = faster;
+ * - sampled image/video luminance: dark = slower, bright = faster;
+ * - press/hold: adds a small speed/pitch boost;
+ * - preservesPitch=false asks supported browsers to let pitch move with speed.
+ *
+ * Filter/delay/distortion values are still control signals only. They are shown
+ * in telemetry but are not yet inserted into the audible route, because the
+ * direct native route is the first configuration confirmed to make sound on the
+ * target mobile Chrome device.
  */
 class P5LabAudioEngine {
   constructor(assetPath, config, telemetry) {
@@ -23,7 +34,10 @@ class P5LabAudioEngine {
     this.analysisReady = false;
 
     this.data = {
-      rms: 0, bass: 0, mid: 0, treble: 0,
+      rms: 0,
+      bass: 0,
+      mid: 0,
+      treble: 0,
       filterHz: config.minFilterHz,
       delayTime: 0,
       delayFeedback: 0,
@@ -37,44 +51,51 @@ class P5LabAudioEngine {
   async setup() {
     if (!this.config.enabled || !this.assetPath) return;
 
-    const a = document.createElement("audio");
-    a.src = this.assetPath;
-    a.preload = "auto";
-    a.loop = true;
-    a.controls = false;
-    a.setAttribute("playsinline", "");
-    a.setAttribute("webkit-playsinline", "");
-    a.volume = P5LabUtils.clamp(this.config.masterVolume, 0, 1);
-    a.style.position = "fixed";
-    a.style.width = "1px";
-    a.style.height = "1px";
-    a.style.opacity = "0";
-    a.style.pointerEvents = "none";
-    document.body.appendChild(a);
-    this.nativeAudio = a;
+    const audio = document.createElement("audio");
+    audio.src = this.assetPath;
+    audio.preload = "auto";
+    audio.loop = true;
+    audio.controls = false;
+    audio.setAttribute("playsinline", "");
+    audio.setAttribute("webkit-playsinline", "");
+    audio.volume = P5LabUtils.clamp(this.config.masterVolume, 0, 1);
+    audio.style.position = "fixed";
+    audio.style.width = "1px";
+    audio.style.height = "1px";
+    audio.style.opacity = "0";
+    audio.style.pointerEvents = "none";
+    document.body.appendChild(audio);
+    this.nativeAudio = audio;
 
     this.telemetry.event(`AUDIO DIRECT LOAD ${P5LabUtils.basename(this.assetPath)}`);
 
-    a.addEventListener("loadedmetadata", () => {
+    audio.addEventListener("loadedmetadata", () => {
       this.fileLoaded = true;
       if (!this.started) this.playState = "READY";
       this.telemetry.event("AUDIO METADATA");
     });
-    a.addEventListener("canplay", () => { this.fileLoaded = true; this.telemetry.event("AUDIO CANPLAY"); });
-    a.addEventListener("playing", () => { this.playState = "PLAYING"; this.telemetry.event("AUDIO PLAYING"); });
-    a.addEventListener("pause", () => { if (this.started && !a.ended) this.playState = "PAUSED"; });
-    a.addEventListener("waiting", () => this.playState = "BUFFERING");
-    a.addEventListener("stalled", () => this.playState = "STALLED");
-    a.addEventListener("error", () => {
-      const c = a.error ? a.error.code : 0;
-      this.playState = `ERROR_${c || "UNKNOWN"}`;
-      this.telemetry.event(`AUDIO ERROR ${c || "?"}`);
+    audio.addEventListener("canplay", () => {
+      this.fileLoaded = true;
+      this.telemetry.event("AUDIO CANPLAY");
+    });
+    audio.addEventListener("playing", () => {
+      this.playState = "PLAYING";
+      this.telemetry.event("AUDIO PLAYING");
+    });
+    audio.addEventListener("pause", () => {
+      if (this.started && !audio.ended) this.playState = "PAUSED";
+    });
+    audio.addEventListener("waiting", () => { this.playState = "BUFFERING"; });
+    audio.addEventListener("stalled", () => { this.playState = "STALLED"; });
+    audio.addEventListener("error", () => {
+      const code = audio.error ? audio.error.code : 0;
+      this.playState = `ERROR_${code || "UNKNOWN"}`;
+      this.telemetry.event(`AUDIO ERROR ${code || "?"}`);
     });
 
-    try { a.load(); } catch (_) {}
+    try { audio.load(); } catch (_) {}
 
-    // Analysis preparation is intentionally asynchronous and non-blocking. The
-    // start screen must not wait for the complete MP3 to decode.
+    // Non-blocking: the start screen never waits for the whole MP3 to decode.
     this.preparePcmAnalysis();
   }
 
@@ -110,26 +131,26 @@ class P5LabAudioEngine {
   requestPlay(reason) {
     if (!this.config.enabled || !this.nativeAudio) return Promise.resolve();
     try {
-      const a = this.nativeAudio;
-      a.muted = false;
-      a.defaultMuted = false;
-      a.volume = P5LabUtils.clamp(this.config.masterVolume, 0, 1);
-      const p = a.play();
+      const audio = this.nativeAudio;
+      audio.muted = false;
+      audio.defaultMuted = false;
+      audio.volume = P5LabUtils.clamp(this.config.masterVolume, 0, 1);
+      const promise = audio.play();
       this.playState = "PLAY_REQUESTED";
       this.telemetry.event(`AUDIO PLAY REQUEST ${reason}`);
-      if (p && typeof p.then === "function") {
-        p.then(() => {
+      if (promise && typeof promise.then === "function") {
+        promise.then(() => {
           this.playState = "PLAYING";
           this.telemetry.event(`AUDIO PLAY OK ${reason}`);
-        }).catch((e) => {
+        }).catch((error) => {
           this.playState = "PLAY_BLOCKED";
-          this.telemetry.event(`AUDIO BLOCKED ${reason} ${e && e.name ? e.name : "ERROR"}`);
+          this.telemetry.event(`AUDIO BLOCKED ${reason} ${error && error.name ? error.name : "ERROR"}`);
         });
-        return p;
+        return promise;
       }
-    } catch (e) {
+    } catch (error) {
       this.playState = "PLAY_ERROR";
-      this.telemetry.event(`AUDIO PLAY ERROR ${e.message || "UNKNOWN"}`);
+      this.telemetry.event(`AUDIO PLAY ERROR ${error.message || "UNKNOWN"}`);
     }
     return Promise.resolve();
   }
@@ -141,12 +162,11 @@ class P5LabAudioEngine {
     const motion = analysis.motionSmooth || 0;
     const press = interaction.pressure || 0;
 
-    // The audible direct-output interaction is deliberately obvious now: Y,
-    // picked luminance and press all alter rate/pitch. preservesPitch=false makes
-    // the relationship audible as pitch as well as duration where supported.
     const pointerRate = P5LabUtils.map01(interaction.y, this.config.minRate, this.config.maxRate);
-    const lumaRate = P5LabUtils.map01(local, 0.90, 1.10);
-    const rate = P5LabUtils.clamp(pointerRate * lumaRate * (1 + press * 0.10), 0.45, 1.65);
+    const lumaRate = P5LabUtils.map01(local, this.config.lumaRateMin, this.config.lumaRateMax);
+    const pressBoost = 1 + press * this.config.pressRateBoost;
+    const rate = P5LabUtils.clamp(pointerRate * lumaRate * pressBoost, 0.45, 1.65);
+
     const pan = interaction.x * 2 - 1;
     const filterHz = P5LabUtils.map01(Math.pow(local, 0.7), this.config.minFilterHz, this.config.maxFilterHz);
     const delayTime = P5LabUtils.map01(interaction.x, 0.025, this.config.maxDelayTime);
@@ -159,7 +179,9 @@ class P5LabAudioEngine {
         if ("preservesPitch" in this.nativeAudio) this.nativeAudio.preservesPitch = false;
         if ("webkitPreservesPitch" in this.nativeAudio) this.nativeAudio.webkitPreservesPitch = false;
       } catch (_) {}
-      try { this.nativeAudio.volume = P5LabUtils.clamp(this.config.masterVolume, 0, 1); } catch (_) {}
+      try {
+        this.nativeAudio.volume = P5LabUtils.clamp(this.config.masterVolume, 0, 1);
+      } catch (_) {}
       if (!this.nativeAudio.paused && this.nativeAudio.readyState >= 2) this.playState = "PLAYING";
     }
 
@@ -191,16 +213,16 @@ class P5LabAudioEngine {
     }
 
     const data = this.analysisChannel;
-    const sr = this.analysisSampleRate;
+    const sampleRate = this.analysisSampleRate;
     const n = Math.max(128, Number(this.config.pcmWindowSize) || 512);
     const duration = this.analysisBuffer.duration || 1;
-    const t = (this.nativeAudio.currentTime || 0) % duration;
-    const start = Math.floor(t * sr) % data.length;
+    const time = (this.nativeAudio.currentTime || 0) % duration;
+    const start = Math.floor(time * sampleRate) % data.length;
 
     let sumSq = 0;
     for (let i = 0; i < n; i += 1) {
-      const v = data[(start + i) % data.length] || 0;
-      sumSq += v * v;
+      const value = data[(start + i) % data.length] || 0;
+      sumSq += value * value;
     }
     const rms = P5LabUtils.clamp(Math.sqrt(sumSq / n) * 3.2, 0, 1);
 
@@ -210,30 +232,34 @@ class P5LabAudioEngine {
       waveform[i] = data[(start + Math.floor((i / points) * n)) % data.length] || 0;
     }
 
-    const bass = this.bandApprox(data, start, n, sr, [55, 90, 140, 210]);
-    const mid = this.bandApprox(data, start, n, sr, [350, 700, 1400, 2800]);
-    const treble = this.bandApprox(data, start, n, sr, [4200, 6200, 8500, 11000]);
+    const bass = this.bandApprox(data, start, n, sampleRate, [55, 90, 140, 210]);
+    const mid = this.bandApprox(data, start, n, sampleRate, [350, 700, 1400, 2800]);
+    const treble = this.bandApprox(data, start, n, sampleRate, [4200, 6200, 8500, 11000]);
     return { rms, bass, mid, treble, waveform };
   }
 
   bandApprox(data, start, n, sampleRate, frequencies) {
     let sum = 0;
-    for (const f of frequencies) sum += this.goertzelAmplitude(data, start, n, sampleRate, f);
-    return P5LabUtils.clamp(sum / frequencies.length * 5.5, 0, 1);
+    for (const frequency of frequencies) {
+      sum += this.goertzelAmplitude(data, start, n, sampleRate, frequency);
+    }
+    return P5LabUtils.clamp((sum / frequencies.length) * 5.5, 0, 1);
   }
 
   goertzelAmplitude(data, start, n, sampleRate, frequency) {
     if (frequency >= sampleRate * 0.49) return 0;
     const omega = 2 * Math.PI * frequency / sampleRate;
     const coeff = 2 * Math.cos(omega);
-    let q0 = 0, q1 = 0, q2 = 0;
+    let q0 = 0;
+    let q1 = 0;
+    let q2 = 0;
     for (let i = 0; i < n; i += 1) {
       q0 = (data[(start + i) % data.length] || 0) + coeff * q1 - q2;
       q2 = q1;
       q1 = q0;
     }
     const power = Math.max(0, q1 * q1 + q2 * q2 - coeff * q1 * q2);
-    return 2 * Math.sqrt(power) / n;
+    return (2 * Math.sqrt(power)) / n;
   }
 
   snapshot() {
