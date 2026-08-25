@@ -1,7 +1,8 @@
-/** DODREI — PAUSE / MUTE UTILITY CONTROLS v1.0.5 */
+/** DODREI — PAUSE / MUTE / UI-HIDE UTILITY CONTROLS v1.0.8 */
 window.addEventListener("DOMContentLoaded", () => {
   const pauseButton = document.getElementById("runtime-pause-button");
   const muteButton = document.getElementById("runtime-mute-button");
+  const uiButton = document.getElementById("runtime-ui-button");
   const stopPointer = (event) => event.stopPropagation();
 
   const setPressed = (button, pressed, label, title) => {
@@ -31,6 +32,8 @@ window.addEventListener("DOMContentLoaded", () => {
       if (typeof window.DODREI_SET_PAUSED === "function") window.DODREI_SET_PAUSED(next);
       else {
         window.DODREI_RUNTIME_PAUSED = next;
+        const engine = window.DODREI_AUDIO_ENGINE;
+        try { if (engine && typeof engine.setPlaybackPaused === "function") engine.setPlaybackPaused(next); } catch (_) {}
         try { if (next && typeof noLoop === "function") noLoop(); else if (!next && typeof loop === "function") loop(); } catch (_) {}
       }
       refreshPause();
@@ -63,5 +66,27 @@ window.addEventListener("DOMContentLoaded", () => {
       refreshMute();
     });
     refreshMute();
+  }
+
+  if (uiButton) {
+    const refreshUi = () => {
+      const hidden = document.body.classList.contains("dodrei-ui-hidden");
+      uiButton.textContent = hidden ? "UI" : "UI";
+      setPressed(
+        uiButton,
+        hidden,
+        hidden ? "Show runtime controls" : "Hide runtime controls",
+        hidden ? "Show runtime controls" : "Hide runtime controls"
+      );
+    };
+
+    uiButton.addEventListener("pointerdown", stopPointer);
+    uiButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      document.body.classList.toggle("dodrei-ui-hidden");
+      refreshUi();
+    });
+    refreshUi();
   }
 });
