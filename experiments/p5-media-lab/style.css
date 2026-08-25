@@ -90,10 +90,11 @@ canvas {
 /* Small gap separates transport/timing from POST COMMON FX. */
 #post-fx-bw-button        { top: calc(102px + var(--safe-top)); }
 #post-fx-gray-button      { top: calc(132px + var(--safe-top)); }
-#post-fx-crush-button     { top: calc(162px + var(--safe-top)); }
-#post-fx-contrast-button  { top: calc(192px + var(--safe-top)); }
-#post-fx-darken-button    { top: calc(222px + var(--safe-top)); }
-#post-fx-vignette-button  { top: calc(252px + var(--safe-top)); }
+#post-fx-low-sat-button   { top: calc(162px + var(--safe-top)); }
+#post-fx-crush-button     { top: calc(192px + var(--safe-top)); }
+#post-fx-contrast-button  { top: calc(222px + var(--safe-top)); }
+#post-fx-darken-button    { top: calc(252px + var(--safe-top)); }
+#post-fx-vignette-button  { top: calc(282px + var(--safe-top)); }
 
 .post-common-fx-button {
   font-size: 9px;
