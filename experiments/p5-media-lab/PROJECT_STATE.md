@@ -1,8 +1,8 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-25  
-Current artwork/runtime version: `0.10.3`  
-Current visual engine version: `0.10.3`  
+Current artwork/runtime version: `0.10.4`  
+Current visual engine version: `0.10.4`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
 Path: `experiments/p5-media-lab/`
@@ -20,115 +20,114 @@ Interaction:
 - hold -> four-band touch rupture;
 - fast held swipe -> recursive swipe feedback;
 - `›` -> manual next enabled mode;
-- FPS number -> cycle BASE VISUAL CLOCK `15 / 24 / 30 / 60`;
-- `S1...S4` -> cycle independent CUT SPEED.
+- FPS number -> BASE VISUAL sampling `15 / 24 / 30 / 60`;
+- `S1...S4` -> VISUAL SPEED `0.50x / 0.75x / 1.00x / 1.50x`.
 
 Runtime controls:
 
 ```text
 [ › ]  mode step
 [30 ]  base visual fps
-[S2 ]  cut speed
+[S2 ]  visual speed
 ```
 
-## v0.10.3 — independent cut speed
+## v0.10.4 — virtual visual time
 
-The v0.10.2 base-clock experiment worked visually, but image changes felt too fast and partly coupled to BASE FPS.
+v0.10.3 changed image-cut timing, but crop/layout/blend seeds still advanced from the sampled BASE-FPS frame index. Therefore S1-S4 could change cut timing without clearly slowing the apparent visual motion.
 
-Cause: v0.10.2 computed `cutTick` from `sampleMs`, the quantized base-frame timestamp. The cut interval itself was still nominally time-based, but the cut state was sampled from the BASE FPS clock.
-
-v0.10.3 separates these clocks explicitly.
+v0.10.4 replaces that model with a cumulative virtual clock.
 
 ```text
 WALL CLOCK
    │
-   ├── CUT CLOCK
-   │     image choice / cut tempo
-   │     uses millis() directly
-   │     S1 320ms  slowest
-   │     S2 240ms  default
-   │     S3 170ms
-   │     S4 110ms  fastest
+   ├── VISUAL SPEED
+   │     S1 0.50x
+   │     S2 0.75x  default
+   │     S3 1.00x
+   │     S4 1.50x
+   │        │
+   │        └── advances VIRTUAL TIME
+   │              ├── visual-state tick
+   │              ├── image-choice cut tick
+   │              └── LUMA / time-driven base state
    │
-   ├── BASE VISUAL CLOCK
-   │     15 / 24 / 30 / 60 fps
-   │     crop / layout / blend / LUMA state
-   │     sample-and-hold
+   ├── BASE VISUAL FPS
+   │     15 / 24 / 30 / 60
+   │     samples the current virtual state
+   │     and holds it between samples
    │
-   └── POST FX CLOCK
-         every available outer render frame
-         touch rupture / feedback / swipe / vignette / waveform
+   └── POST FX / DISPLAY
+         every available outer render callback
+         rupture / recursive feedback / swipe / vignette / waveform
 ```
 
-Config:
+Important rule:
+
+```text
+VISUAL SPEED = how fast the artwork timeline progresses
+BASE FPS     = how often that timeline is sampled
+POST FX FPS  = actual available render callbacks
+```
+
+Changing BASE FPS must not change timeline speed. Changing S1-S4 must not change the requested outer p5 frame rate.
+
+## Current timing config
 
 ```js
 timing: {
   compositionFps: 30,
-  cutSpeedLevel: "S2",
-  cutIntervalMs: 240,
+  visualSpeedLevel: "S2",
+  visualSpeedMultiplier: 0.75,
+  visualStateIntervalMs: 45,
+  cutSpeedLevel: "S2", // legacy mirror
+  cutIntervalMs: 240,  // measured on virtual time
   timeReferenceFps: 60,
   maxDeltaMs: 100,
 }
 ```
 
-`visual.photoCutMs = 90` remains for inherited glitch/rupture/FX timing and compatibility. It no longer controls the active visible image-choice tempo in v0.10.3.
-
-Implementation file:
-
-`js/visual-engine-v103.js`
-
-It subclasses `DodreiVisualEngineV102`. v0.10.2 and earlier engines remain intact for rollback.
-
-### Runtime cut-speed control
-
-The third small upper-left button displays the current level and cycles:
+At the default S2:
 
 ```text
-S1 -> S2 -> S3 -> S4 -> S1
+visual-state changes ≈ 16.7 Hz
+image cut estimate   ≈ 320 ms real time
 ```
 
-Changing speed calls `setCutSpeed()` and forces the next base sample immediately.
-
-Button pointer/click propagation is stopped so the control should not trigger canvas touch/rupture behavior.
-
-### Diagnostics
-
-Telemetry now exposes:
+Approximate S1-S4 behavior:
 
 ```text
-FPS         actual outer p5 render rate
+S1 0.50x -> state ≈ 11.1 Hz / cut ≈ 480 ms
+S2 0.75x -> state ≈ 16.7 Hz / cut ≈ 320 ms
+S3 1.00x -> state ≈ 22.2 Hz / cut ≈ 240 ms
+S4 1.50x -> state ≈ 33.3 Hz / cut ≈ 160 ms
+```
+
+The virtual clock is accumulated using wall-clock deltas, so switching speed does not jump to a different absolute timeline position. `maxDeltaMs=100` prevents large jumps after tab/background stalls.
+
+Implementation:
+
+- `js/visual-engine-v104.js` subclasses v0.10.3;
+- v0.10.3 and earlier engine files remain for rollback;
+- `visual.photoCutMs = 90` remains only for inherited glitch/rupture/FX timing and compatibility.
+
+## Diagnostics
+
+Telemetry exposes:
+
+```text
+FPS         actual outer p5 rate
 BASE_FPS    target / measured base refresh rate
-CUT_SPEED   level / milliseconds
+VIS_SPEED   level / multiplier
+STATE_HZ    effective virtual visual-state rate
+CUT_EST     estimated real-time image cut interval
 ```
-
-## v0.10.2 — base visual clock
-
-`compositionFps` remains the compatibility key for BASE VISUAL FPS.
-
-Affected base state includes:
-
-- PHOTO_FULL crop state;
-- PHOTO_FEEDBACK_CROP crop/blend state;
-- PHOTO_RAPID_CROP crop/blend state;
-- PHOTO_RGB_TEAR crop/layout state;
-- PHOTO_SHARD_SWAP shard visibility/crop layout;
-- PHOTO_DOUBLE_BLEND crop/blend state;
-- PHOTO_BLEND_CYCLE crop/blend state;
-- LUMA crop/jitter/pulse state.
-
-The sampled base frame is held between updates. Post FX stay on the outer render clock.
-
-## v0.10.0 feedback timing baseline
-
-Recursive feedback remains deltaTime-normalized for scale, retention, fade and swipe drift. Source injection and random/glitch texture remain intentionally frame-sensitive.
 
 ## Other current baseline values
 
 ```text
 outer target fps         60
 base visual fps default  30
-cut speed default        S2 / 240ms
+visual speed default     S2 / 0.75x
 mobile main buffer       720 long edge
 desktop main buffer      1280 long edge
 common crush             OFF
@@ -140,42 +139,30 @@ staging                   up to 5
 
 Current visual presets remain the 12-mode PHOTO/LUMA playlist.
 
-## Clock ownership rule
-
-Keep these concepts separate in future work:
-
-```text
-CUT SPEED
-  what image/cut state is selected over wall-clock time
-
-BASE VISUAL FPS
-  temporal resolution of crop/layout/blend/LUMA state
-
-POST FX / DISPLAY FPS
-  actual available render callbacks
-```
-
-Do not make cut speed a multiple of frame count. Do not globally lower p5 `frameRate()` when only the base visual cadence should be stepped.
-
 ## Rollback
 
-If v0.10.3 is aesthetically wrong:
+If v0.10.4 is aesthetically wrong:
 
-1. remove `js/visual-engine-v103.js` from `index.html`;
-2. `visual-engine-v102.js` becomes active again;
-3. remove or ignore the S1-S4 button separately.
+1. remove `js/visual-engine-v104.js` from `index.html`;
+2. `visual-engine-v103.js` becomes active again;
+3. restore the old cut-speed UI semantics if desired.
 
-No v0.10.2 or v0.10.0 engine implementation was deleted.
+No inherited engine implementation was deleted.
 
 ## Next test
 
-Compare especially `PHOTO_FULL`, `PHOTO_RAPID_CROP`, `PHOTO_SHARD_SWAP` and `PHOTO_BLEND_CYCLE` while holding BASE FPS constant and cycling:
+First keep BASE FPS at `30` and compare:
 
 ```text
-S1 320ms
-S2 240ms
-S3 170ms
-S4 110ms
+S1 -> S2 -> S3 -> S4
 ```
 
-Then hold cut speed constant and compare `15 / 24 / 30 / 60`. The two controls should now change different perceptual dimensions.
+The whole base visual progression should now clearly speed up, not only source-image selection.
+
+Then keep S2 fixed and compare:
+
+```text
+15 -> 24 -> 30 -> 60
+```
+
+The perceived timeline speed should stay similar while temporal stepping/sampling changes.
