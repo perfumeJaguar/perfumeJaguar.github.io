@@ -7,13 +7,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 9,
+    configRevision: 10,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.10.5",
+    version: "0.10.6",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -21,17 +21,13 @@ window.DODREI_CONFIG = {
     imageSwitchSec: 0.10,
   },
 
-  // Three independent temporal concepts:
-  // - compositionFps: BASE VISUAL sampling cadence, 15 -> 24 -> 30 -> 60.
-  // - visualSpeed*: virtual-time progression speed, S1 -> S2 -> S3 -> S4 -> S5.
-  // - outer p5 render / post FX: app.targetFps, currently 60 target.
   timing: {
     compositionFps: 30,
     visualSpeedLevel: "S1",
     visualSpeedMultiplier: 0.25,
     visualStateIntervalMs: 45,
-    cutSpeedLevel: "S1", // legacy mirror for compatibility
-    cutIntervalMs: 240, // interval measured on virtual time
+    cutSpeedLevel: "S1",
+    cutIntervalMs: 240,
     timeReferenceFps: 60,
     maxDeltaMs: 100,
   },
@@ -107,16 +103,33 @@ window.DODREI_CONFIG = {
     mosaicColsMobile: 18,
     mosaicColsDesktop: 32,
 
-    // Legacy/shared FX tick retained for inherited glitch/rupture behavior.
-    // Active base visual progression uses timing.visualSpeed* + virtual time.
     photoCutMs: 90,
     rgbTearMaxPx: 48,
     vignetteStrength: 0.34,
 
-    // Retained but common stage is OFF by default.
     crushContrast: 1.32,
     crushPosterizeLevels: 6,
     crushIntruderAlpha: 28,
+
+    // PRE COMMON FX belongs to the same sampled composition level as MODE.
+    // Architecture exists, but there is no active PRE effect yet.
+    preCommonFx: {},
+
+    // POST COMMON FX runs after MODE/PRE and before touch/gesture FX.
+    postCommonFx: {
+      bw: false,
+      crush: false,
+      highContrast: false,
+      darken: false,
+      strongVignette: false,
+      bwThreshold: 0.50,
+      highContrastAmount: 3.20,
+      highContrastSaturation: 1.08,
+      darkenAlpha: 0.46,
+      strongVignetteStrength: 0.96,
+      strongVignetteInner: 0.16,
+      strongVignetteOuter: 0.72,
+    },
 
     touchRuptureContrast: 3.2,
     touchRuptureBands: 13,
@@ -149,14 +162,15 @@ window.DODREI_CONFIG = {
       manualButtonEnabled: true,
     },
 
+    // PHOTO_FULL is the clean reference mode and deliberately comes first.
     presets: [
+      { id: "photo-full", name: "PHOTO_FULL", enabled: true, photoFull: true },
       { id: "photo-feedback-crop", name: "PHOTO_FEEDBACK_CROP", enabled: true, photoFeedback: true, feedback: true },
       { id: "photo-rapid-crop", name: "PHOTO_RAPID_CROP", enabled: true, photoRapidCrop: true },
       { id: "photo-rgb-tear", name: "PHOTO_RGB_TEAR", enabled: true, photoRgbTear: true },
       { id: "photo-shard-swap", name: "PHOTO_SHARD_SWAP", enabled: true, photoShardSwap: true },
       { id: "photo-double-blend", name: "PHOTO_DOUBLE_BLEND", enabled: true, photoDoubleBlend: true },
       { id: "photo-blend-cycle", name: "PHOTO_BLEND_CYCLE", enabled: true, photoBlendCycle: true },
-      { id: "photo-full", name: "PHOTO_FULL", enabled: true, photoFull: true },
       { id: "luma-blocks", name: "LUMA_BLOCKS", enabled: true, mosaic: "normal" },
       { id: "luma-void", name: "LUMA_VOID", enabled: true, mosaic: "inverse" },
       { id: "luma-mono", name: "LUMA_MONO", enabled: true, mosaic: "mono" },
