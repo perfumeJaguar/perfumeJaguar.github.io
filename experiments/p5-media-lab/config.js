@@ -7,13 +7,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 10,
+    configRevision: 11,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.10.6",
+    version: "0.10.7",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -84,6 +84,16 @@ window.DODREI_CONFIG = {
     maxDelayTime: 0.68,
     maxDelayFeedback: 0.82,
     maxDistortion: 0.88,
+
+    // Touch rupture is intentionally quieter than the original v0.6 patch.
+    touchFxDryDuck: 0.28,
+    touchFxWetScale: 0.45,
+    touchFxDirectGainBase: 0.34,
+    touchFxDirectGainPress: 0.12,
+    touchFxDelayGainScale: 0.72,
+    touchFxDistortionScale: 0.65,
+    touchFxFeedbackScale: 0.68,
+    touchFxResonanceMaxQ: 6.8,
   },
 
   visual: {
@@ -116,12 +126,15 @@ window.DODREI_CONFIG = {
     preCommonFx: {},
 
     // POST COMMON FX runs after MODE/PRE and before touch/gesture FX.
+    // Active effects are applied in this order; turning an effect on appends it.
     postCommonFx: {
       bw: false,
+      grayscale: false,
       crush: false,
-      highContrast: false,
-      darken: false,
+      highContrast: true,
+      darken: true,
       strongVignette: false,
+      order: ["highContrast", "darken"],
       bwThreshold: 0.50,
       highContrastAmount: 3.20,
       highContrastSaturation: 1.08,
@@ -162,20 +175,17 @@ window.DODREI_CONFIG = {
       manualButtonEnabled: true,
     },
 
-    // PHOTO_FULL is the clean reference mode and deliberately comes first.
+    // Active sequence only. PHOTO_RGB_TEAR (telemetry alias CHR_MA::W0UND)
+    // is removed for performance. LUMA/mosaic modes are deferred to TODO.
+    // Their engine implementations are intentionally retained for future reuse.
+    // PHOTO_FULL is the clean source and deliberately comes last.
     presets: [
-      { id: "photo-full", name: "PHOTO_FULL", enabled: true, photoFull: true },
       { id: "photo-feedback-crop", name: "PHOTO_FEEDBACK_CROP", enabled: true, photoFeedback: true, feedback: true },
       { id: "photo-rapid-crop", name: "PHOTO_RAPID_CROP", enabled: true, photoRapidCrop: true },
-      { id: "photo-rgb-tear", name: "PHOTO_RGB_TEAR", enabled: true, photoRgbTear: true },
       { id: "photo-shard-swap", name: "PHOTO_SHARD_SWAP", enabled: true, photoShardSwap: true },
       { id: "photo-double-blend", name: "PHOTO_DOUBLE_BLEND", enabled: true, photoDoubleBlend: true },
       { id: "photo-blend-cycle", name: "PHOTO_BLEND_CYCLE", enabled: true, photoBlendCycle: true },
-      { id: "luma-blocks", name: "LUMA_BLOCKS", enabled: true, mosaic: "normal" },
-      { id: "luma-void", name: "LUMA_VOID", enabled: true, mosaic: "inverse" },
-      { id: "luma-mono", name: "LUMA_MONO", enabled: true, mosaic: "mono" },
-      { id: "luma-dither", name: "LUMA_DITHER", enabled: true, mosaic: "dither" },
-      { id: "luma-pulse", name: "LUMA_PULSE", enabled: true, mosaic: "pulse" },
+      { id: "photo-full", name: "PHOTO_FULL", enabled: true, photoFull: true },
     ],
 
     pipeline: [
@@ -203,6 +213,9 @@ window.DODREI_CONFIG = {
     marginDesktop: 18,
     glitchOnMotion: true,
     glitchLabels: true,
+    glitchIntervalMs: 260,
+    glitchChance: 0.42,
+    glitchLineChance: 0.24,
   },
 
   control: {
