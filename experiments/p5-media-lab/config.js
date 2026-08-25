@@ -22,7 +22,7 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.6.4",
+    version: "0.6.6",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -97,9 +97,8 @@ window.P5LAB_CONFIG = {
     crushContrast: 1.32,
     crushPosterizeLevels: 6,
     crushIntruderAlpha: 28,
-    // v0.6.4 touch rupture: grayscale/high contrast -> tear/noise -> FINAL palette
-    // remap. The upper-middle band becomes saturated red only at the end, so
-    // later rupture compositing cannot muddy it into brown/maroon.
+    // Touch rupture: grayscale/high contrast -> tear/noise -> final palette remap.
+    // v0.6.6 also fixes engine registration so this code path is actually used.
     touchRuptureContrast: 3.2,
     touchRupturePosterizeLevels: 4,
     touchRuptureBands: 13,
