@@ -26,5 +26,5 @@ window.P5LAB_ASSETS = {
     "./assets/images/image_low_10.jpg",
   ],
 
-  audio: "./assets/audio/audio_low1.mp3",
+  audio: "./assets/audio/20220302 - sarabande.mp3",
 };
