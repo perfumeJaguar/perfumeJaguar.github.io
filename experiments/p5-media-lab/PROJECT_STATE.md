@@ -1,7 +1,7 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-26  
-Current artwork/runtime version: `1.0.1`  
+Current artwork/runtime version: `1.0.2`  
 Current visual engine version: `1.0.0`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
@@ -60,11 +60,11 @@ Lower-right:
 
 A successful copy shows a brief `LINK COPIED` message.
 
-## v1.0.1 — URL preset / share-link layer
+## v1.0.2 — URL mode/crop expansion + telemetry font fix
+
+### URL preset contract
 
 Implementation: `js/url-preset.js`.
-
-The script runs immediately after `config.js` and before engine construction. It validates URL query parameters and mutates only recognized runtime controls. Invalid or malformed values are ignored, leaving the canonical config defaults untouched.
 
 Supported parameters:
 
@@ -73,7 +73,8 @@ fps=15|24|30|60
 speed=S1|S2|S3|S4|S5
 post=0|1
 fx=<ordered comma-separated FX tokens>
-mode=<preset id>
+mode=<preset id | internal preset name | displayed telemetry MODE alias>
+crop=<max crop zoom>
 ```
 
 FX tokens:
@@ -89,32 +90,78 @@ DK  darken
 VG  strong vignette
 ```
 
-`fx=NONE` is valid. Unknown/duplicate FX tokens invalidate the `fx` parameter as a whole, so defaults remain intact rather than partially applying a malformed chain.
+`fx=NONE` is valid. Unknown/duplicate FX tokens invalidate the `fx` parameter as a whole.
 
-Example:
+### Mode parameter
+
+The URL parser accepts all of these for the same mode:
 
 ```text
-?fps=24&speed=S2&post=1&fx=HC,LS,BL,DK&mode=photo-feedback-crop
+photo-feedback-crop   stable preset id
+PHOTO_FEEDBACK_CROP   internal preset name
+NULL//VEIL_7F         displayed telemetry alias
 ```
+
+Displayed aliases mirror `telemetry.aliasMode()`.
+
+`SHR` deliberately serializes the stable preset id rather than the display alias, because the id is intended to remain stable even if the pseudo-system display language changes later.
+
+### Crop parameter
+
+`crop` writes `visual.sourceCropMaxZoom` before engine construction.
+
+Two notations are accepted:
+
+```text
+crop=25   -> 2.5x
+crop=30   -> 3.0x
+```
+
+Direct values are also accepted from `1.0` through `5.0`:
+
+```text
+crop=2.5
+crop=3
+```
+
+`SHR` includes the current maximum crop in compact form, e.g. `crop=30` for `3.0x`.
 
 ### Share serialization
 
-`SHR` reads current runtime state and serializes:
+`SHR` serializes:
 
 - current mode;
 - base FPS;
 - visual speed level;
 - POST master state;
 - active POST FX;
-- current POST FX activation order.
+- current POST FX activation order;
+- current maximum crop value.
 
-The current page URL is copied to the clipboard. FX order is preserved because POST processing is order-sensitive.
-
-This URL layer deliberately does not depend on the control UI. A future public/deployment page can remove or hide the test controls and still accept exactly the same URL preset parameters.
+The URL layer remains independent from the test control UI so a later public build can omit controls and still consume the same URL contract.
 
 ## Typography / telemetry style
 
 Runtime font: **IBM Plex Mono**.
+
+The v1.0.1 style wrapper did not reliably make the p5 canvas telemetry leave its initial generic monospace fallback on every browser. v1.0.2 replaces that presentation wrapper with an explicit renderer: `js/telemetry-v102.js`.
+
+It requests IBM Plex Mono through the browser FontFaceSet and explicitly applies the family to the p5/canvas text renderer once available.
+
+Current telemetry treatment:
+
+```text
+text color        RGB 214 / 214 / 210
+primary alpha     0.52
+secondary alpha   0.28
+faint alpha       0.14
+line jitter       ~1.6 px, occasional
+slow drift        ±1 px / ~7 s slot
+```
+
+The previous green cast has been removed; the ink is now neutral off-gray.
+
+Existing v0.10.7 character corruption remains active. There is still no text blur, stacked text-shadow, or chromatic-aberration pass.
 
 Reusable webfont registry: `assets/fonts/webfonts.css`.
 
@@ -125,22 +172,7 @@ Registered families:
 - Share Tech Mono;
 - VT323.
 
-Only IBM Plex Mono is used in DODREI at the moment.
-
-Current telemetry treatment:
-
-```text
-text color        RGB 190 / 215 / 196
-primary alpha     0.56
-secondary alpha   0.30
-faint alpha       0.16
-line jitter       ~1.6 px, occasional
-slow drift        ±1 px / ~7 s slot
-```
-
-Existing v0.10.7 character corruption remains active. v1.0.1 adds only font/color/alpha/coordinate styling; there is no text blur, stacked text-shadow, or chromatic-aberration pass. This is intentional to preserve a restrained institutional/backrooms character and near-zero added rendering cost.
-
-Implementation: `js/telemetry-v101.js` patches the v0.10.7 telemetry renderer without changing underlying telemetry values.
+Only IBM Plex Mono is used by DODREI at present.
 
 ## Existing v1 POST / touch semantics
 
@@ -175,6 +207,17 @@ strength   2.00
 06 PHOTO_FULL
 ```
 
+Displayed telemetry aliases for the active set:
+
+```text
+PHOTO_FEEDBACK_CROP  -> NULL//VEIL_7F
+PHOTO_RAPID_CROP     -> CUT.RASTER//19
+PHOTO_SHARD_SWAP     -> SHARD.BLEED//A3
+PHOTO_DOUBLE_BLEND   -> TWIN_EXPOSURE//NULL
+PHOTO_BLEND_CYCLE    -> MIX.CYCLE//BROKEN
+PHOTO_FULL           -> SOURCE//UNMARKED
+```
+
 `PHOTO_FULL` remains last as the clean/no-effect reference.
 
 Removed/deferred:
@@ -207,19 +250,19 @@ RGB tear                  removed from active sequence
 LUMA/mosaic               deferred
 ```
 
-URL parsing/share-copy is event-driven and negligible. Telemetry v1.0.1 adds only tiny coordinate/color/font changes. BL remains the most expensive of the current startup POST chain but is deliberately weak.
+URL parsing/share-copy is event-driven and negligible. Telemetry v1.0.2 still uses only font/color/alpha/coordinate changes. BL remains the most expensive current startup POST effect but is deliberately weak.
 
 ## Font asset note
 
-`assets/fonts/webfonts.css` and `assets/fonts/README.md` are committed as reusable repository assets. The current GitHub connector can write UTF-8 text files but cannot commit binary `.woff2` / `.ttf` payloads, so font binaries are not vendored in this checkpoint. Runtime therefore uses the hosted Google Fonts webfont source with normal monospace fallback.
+`assets/fonts/webfonts.css` and `assets/fonts/README.md` are committed as reusable repository assets. The current GitHub connector can write UTF-8 text files but cannot commit binary `.woff2` / `.ttf` payloads, so font binaries are not vendored in this checkpoint. Runtime uses hosted Google Fonts with normal monospace fallback.
 
 ## Important files
 
-- `config.js` — canonical v1.0.1 defaults;
+- `config.js` — canonical v1.0.2 defaults;
 - `js/url-preset.js` — validated URL overrides + share serializer;
 - `js/visual-engine-v1000.js` — v1 visual engine;
 - `js/telemetry-v107.js` — text corruption;
-- `js/telemetry-v101.js` — IBM Plex Mono/backrooms presentation patch;
+- `js/telemetry-v102.js` — explicit IBM Plex Mono/off-gray canvas renderer;
 - `js/mode-control-ui.js` — test controls + SHR clipboard action;
 - `assets/fonts/webfonts.css` — shared font registry;
 - `assets/fonts/README.md` — font asset notes;
@@ -231,14 +274,11 @@ The current page remains the test/control build. A later public build should use
 
 ## Checkpoint — 2026-08-26 01:xx KST
 
-v1.0.1 changes:
+v1.0.2 changes:
 
-1. startup chain changed to `HC -> LS -> BL -> DK`;
-2. startup BASE FPS changed to `24`;
-3. startup VIS SPEED changed to `S2 / 0.50x`;
-4. source maximum crop increased `2.5x -> 3.0x`;
-5. validated URL presets added for FPS/speed/POST/FX order/mode;
-6. `SHR` button added at lower-right with `LINK COPIED` feedback;
-7. IBM Plex Mono adopted for UI/telemetry;
-8. telemetry shifted to muted gray-green, lower opacity, subtle drift/jitter;
-9. reusable webfont registry added for IBM Plex Mono / Space Mono / Share Tech Mono / VT323.
+1. p5 canvas telemetry now explicitly uses IBM Plex Mono rather than relying on a generic monospace fallback;
+2. telemetry green cast removed; neutral off-gray color/alpha hierarchy adopted;
+3. `mode=` now accepts stable preset id, internal preset name, or the exact displayed telemetry alias;
+4. `crop=` added for maximum source crop, including `25 -> 2.5x` and `30 -> 3.0x` shorthand;
+5. SHR links now include the current crop value;
+6. v1.0.1 telemetry presentation wrapper is no longer loaded; `telemetry-v102.js` is the active presentation layer.
