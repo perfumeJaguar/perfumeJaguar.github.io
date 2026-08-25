@@ -1,8 +1,8 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-25  
-Current artwork/runtime version: `0.9.1`  
-Current visual engine version: `0.9.0`  
+Current artwork/runtime version: `0.10.0`  
+Current visual engine version: `0.10.0`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
 Path: `experiments/p5-media-lab/`  
@@ -11,230 +11,355 @@ Live control page: `https://perfumeJaguar.github.io/experiments/p5-media-lab/con
 
 ## Project identity
 
-The browser media-art project is named **DODREI**. Legacy `P5Lab*` internal names and the `p5-media-lab` folder remain for compatibility; do not broadly rename them unless explicitly requested.
+The artwork/project name is **DODREI**. Legacy `P5Lab*` internal names and the `p5-media-lab` folder remain for compatibility. Do not broadly rename them unless explicitly requested.
 
 GitHub is the implementation source of truth.
 
 ## Current artistic baseline
 
-PHOTO ONLY. Video code/assets may remain but are not active material.
+PHOTO ONLY. Video modules/assets may remain but are not current visual material.
 
-Primary material and interaction:
+Primary behavior:
 
 - automatically discovered still-image archive;
 - one original MP3;
 - mouse / one-finger touch;
 - hold -> high-contrast four-band rupture;
-- fast swipe while holding -> additional recursive feedback above `0.30`;
-- small upper-left `›` control -> manually advance visual mode;
-- terminal-like telemetry.
+- fast swipe -> recursive feedback;
+- upper-left `›` -> manual next mode;
+- telemetry remains a foreground visual subsystem.
 
-Mobile portrait remains the primary target. Some lower mobile frame rate is artistically acceptable, but stability, touch latency, heat and long-run memory remain important.
+Automatic mode advancement is currently OFF.
+
+## v0.10.0 — temporal cadence model
+
+The outer p5 loop still targets:
+
+```text
+app.targetFps = 60
+```
+
+This is the maximum requested render cadence, not a guarantee. Real devices may fluctuate below it.
+
+Preset composition now has an independent sample-and-hold cadence:
+
+```js
+timing: {
+  compositionFps: 30,
+  timeReferenceFps: 60,
+  maxDeltaMs: 100,
+}
+```
+
+Recommended test values for `compositionFps`:
+
+```text
+15 / 24 / 30 / 60
+```
+
+Default is `30`.
+
+### Temporal split
+
+```text
+WALL CLOCK
+   │
+   ├── PRESET COMPOSITION
+   │     target 30fps by default
+   │     redraw only when cadence interval is due
+   │     otherwise hold previous composition buffer
+   │
+   └── POST FX / DISPLAY
+         runs every available outer render frame
+         actual rate may be 60, 30, 20, etc.
+```
+
+This means lowering composition cadence does **not** globally call `frameRate(15/24/30)` and does not deliberately slow the whole application.
+
+The intended visual result is stepped source/composition motion with smoother post processing whenever the device has headroom.
+
+### What happens under real performance drops
+
+If the device itself falls from 60fps to 20–30fps, post FX cannot continue physically rendering at 60fps. There are simply fewer render callbacks.
+
+v0.10.0 therefore time-normalizes selected recursive feedback behavior using p5 `deltaTime`.
+
+Reference behavior:
+
+```text
+60fps -> frame ratio ≈ 1
+30fps -> frame ratio ≈ 2
+20fps -> frame ratio ≈ 3
+```
+
+The time sample is capped by:
+
+```text
+maxDeltaMs = 100
+```
+
+This follows ordinary transient slowdowns but prevents tab/background stalls from producing one huge transform.
+
+### Time-normalized feedback values
+
+Preset feedback:
+
+- recursive scale;
+- previous-frame retention alpha;
+- black background fade.
+
+Swipe feedback:
+
+- recursive scale;
+- previous-frame retention alpha;
+- black fade;
+- pointer-directed drift distance.
+
+Implementation patterns:
+
+```text
+per-frame multiplicative value
+  -> pow(valueAtReferenceFps, frameRatio)
+
+retain alpha
+  -> pow(normalizedRetain, frameRatio)
+
+fade alpha
+  -> 1 - pow(1 - normalizedFade, frameRatio)
+```
+
+### Intentionally frame-dependent behavior
+
+Do NOT automatically time-normalize everything.
+
+Currently left frame-dependent on purpose:
+
+- current/source injection alpha inside feedback;
+- rupture band/random texture;
+- glitch/random corruption.
+
+Reason: DODREI should keep some visible relationship to actual computational stress. When the device becomes overloaded, fine texture may change even though the larger feedback timing remains more stable.
+
+This distinction is an architectural principle worth preserving:
+
+```text
+TIME-BASED behavior
+  stable wall-clock motion / decay
+
+FRAME-BASED behavior
+  texture / glitch / computational damage
+```
 
 ## v0.9.1 — common crush disabled
 
-The common PHOTO_CRUSH stage is no longer applied to every preset by default.
-
-Current pipeline config:
+The global `common-crush` pipeline stage remains implemented but is OFF by default:
 
 ```js
-{ id: "preset-composition", enabled: true, locked: true },
-{ id: "common-crush", enabled: false, locked: true },
-{ id: "touch-rupture", enabled: true, locked: true },
-{ id: "preset-feedback", enabled: true, locked: true },
-{ id: "swipe-feedback", enabled: true, locked: true },
-{ id: "vignette", enabled: true, locked: true },
-{ id: "waveform", enabled: true, locked: true },
+{ id: "common-crush", enabled: false, locked: true }
 ```
 
-The PHOTO_CRUSH implementation and tuning values remain available in `config.js` / inherited engine code. This is intentionally a reversible config change, not feature deletion.
+Its parameters remain in config for reversible experiments.
 
-Versioning for this change:
+## v0.9.0 — performance + manual mode baseline
 
-```text
-app.version = 0.9.1
-meta.configRevision = 3
-meta.schemaVersion = 1
-ENGINE = 0.9.0
-```
+Still active:
 
-The engine version does not change because no engine implementation was modified. The artwork/runtime version increments because the visible baseline changed.
+- mobile main processing long edge `720`;
+- desktop long edge `1280`;
+- GPU four-band touch palette with CPU fallback;
+- upper-left manual mode button;
+- automatic visual-mode advancement OFF;
+- `app.modeDurationSec = 11` retained for later restoration.
 
-## v0.9.0 — performance + manual mode control
-
-### Mobile render buffer
-
-`render.maxBufferLongEdgeMobile` changed:
-
-```text
-900 -> 720
-```
-
-Desktop remains `1280`.
-
-This reduces the internal main visual-processing pixel count while the outer canvas still fills the device viewport.
-
-### Touch rupture palette shader
-
-Previous versions performed the final four-band palette with:
-
-```text
-loadPixels -> JavaScript loop over every rupture pixel -> updatePixels
-```
-
-v0.9.0 moves that final mapping to a p5 filter shader in `js/visual-engine-v090.js`.
-
-The earlier stages remain:
-
-```text
-source scene
- -> reduced-resolution grayscale / contrast
- -> horizontal rupture bands
- -> GPU four-band palette
-```
+## Touch rupture
 
 Current palette:
 
-- black `[0,0,0]`;
-- dark gray `[72,72,72]`;
-- muted red `[238,94,90]`;
-- near-white `[246,246,244]`.
+```text
+BLACK      [0,0,0]
+DARK GRAY  [72,72,72]
+MUTED RED  [238,94,90]
+NEAR WHITE [246,246,244]
+```
 
-The shader consumes `visual.touchPalette`. If shader creation/application fails, the engine switches to the old CPU pixel-loop mapping and emits telemetry/console notice rather than failing the artwork.
+The final palette mapping uses the v0.9 p5 filter shader when supported. CPU pixel-loop fallback remains available.
 
-This is deliberately a narrow GPU optimization; DODREI has not been converted wholesale from Canvas2D to WebGL.
+Mobile rupture baseline:
 
-### Manual mode control
+- resolution scale `0.50`;
+- desktop scale `0.70`;
+- mobile recalculation every second rendered frame;
+- fresh gesture forces immediate refresh.
 
-Timed visual-mode advancement is disabled by config:
+## Current mode system
+
+`visual.presets` is the actual mode playlist.
+
+Current modes:
+
+- PHOTO_FEEDBACK_CROP
+- PHOTO_RAPID_CROP
+- PHOTO_RGB_TEAR
+- PHOTO_SHARD_SWAP
+- PHOTO_DOUBLE_BLEND
+- PHOTO_BLEND_CYCLE
+- PHOTO_FULL
+- LUMA_BLOCKS
+- LUMA_VOID
+- LUMA_MONO
+- LUMA_DITHER
+- LUMA_PULSE
+
+Stable preset IDs are compatibility anchors. Disabled presets are skipped.
+
+Current mode control:
 
 ```js
-visual.modeControl.autoAdvance = false
-visual.modeControl.manualButtonEnabled = true
+strategy: "sequence"
+startIndex: 0
+loop: true
+autoAdvance: false
+manualButtonEnabled: true
 ```
 
-`app.modeDurationSec = 11` remains stored and becomes active again if automatic advancement is re-enabled later.
-
-The upper-left button calls `manualAdvanceMode()`. Manual stepping reuses the same policy established in v0.8.0:
-
-- enabled presets only;
-- `sequence` or `shuffle` strategy;
-- `loop` behavior for sequence;
-- feedback buffers cleared at each mode step;
-- telemetry announces the newly selected mode.
-
-The button is visually small (`30 x 24 px`).
-
-## Configuration system baseline
-
-`config.js` is canonical runtime data. `config-schema.js` provides editor/validation metadata. `control/` reads both and can render additive unknown fields through inferred types.
-
-Current identity:
-
-```text
-meta.project = DODREI
-meta.schemaVersion = 1
-meta.configRevision = 3
-app.version = 0.9.1
-```
-
-Import policy remains compatible partial merge. Stable-ID arrays such as presets, pipeline stages and image sets are compared by ID rather than array position.
-
-GitHub Pages remains static. CONTROL can load/edit/import/export configuration but cannot write directly back to the repository.
-
-## Image system
-
-The complete archive remains lightweight metadata. Current rolling decoded working set:
-
-- active images: `20`;
-- staging: up to `5`;
-- image-pool rotation interval: `5s` after swap completion;
-- runtime decode concurrency: `1`;
-- startup concurrency: `3`;
-- selection: shuffle-bag;
-- active/staging entries excluded from replacement candidates;
-- candidate order reshuffled each cycle.
-
-Image-set metadata remains extensible for future personA/personB or other folder-based sets. Current set mixing is generic pooling, not weighted/alternating.
-
-## Crop baseline
-
-Overflow-aware source cropping from v0.7.0 remains active.
-
-- random crop zoom: `1.0x ... 2.5x`;
-- cover-fit overflow is included in legal crop movement;
-- random crop can traverse otherwise hidden source regions;
-- touch bias is clamped inside legal overflow;
-- no empty/letterboxed edge should be exposed.
+`sequence | shuffle` policy is shared by manual and future automatic advancement.
 
 ## Current visual pipeline
 
-Logical stage order remains:
-
 ```text
-preset composition
- -> common PHOTO_CRUSH [DISABLED by default]
- -> touch rupture
- -> preset feedback
- -> swipe feedback
- -> vignette
- -> waveform
+preset-composition   ON   cadence-limited to 30fps default
+common-crush        OFF
+touch-rupture       ON
+preset-feedback     ON
+swipe-feedback      ON
+vignette            ON
+waveform            ON
 ```
 
-Config exposes stable pipeline IDs and enable/disable state. Order remains locked.
+Order is locked.
 
-Active preset playlist remains the 12 v0.8 presets, including PHOTO_FEEDBACK_CROP, PHOTO_RAPID_CROP, PHOTO_RGB_TEAR, PHOTO_SHARD_SWAP, PHOTO_DOUBLE_BLEND, PHOTO_BLEND_CYCLE, PHOTO_FULL, and five LUMA modes.
+## Image system baseline
 
-HALATION/BLOOM remains removed from active use because its blur cost is not justified by the present work.
+Archive discovery uses GitHub public Contents API with `assets.js` fallback.
 
-## Performance baseline / next tests
+Resident decoded pool:
 
-Already active:
+```text
+20 ACTIVE
+up to 5 STAGING
+runtime decode concurrency 1
+startup concurrency 3
+rotation interval 5s
+selection policy shuffle-bag
+```
+
+Candidate selection remains separate from effects.
+
+Unused candidates are consumed before reshuffling where possible; active/staging entries are excluded from replacements.
+
+Image sets remain folder-oriented and stable-ID based. Current generic set pooling is ready for future personA/personB folders, but weighting/alternation/quotas are not implemented yet.
+
+## Crop baseline
+
+Overflow-aware crop from v0.7.0 remains active.
+
+- source crop zoom: `1.0x ... 2.5x`;
+- cover-fit overflow is included in legal movement;
+- portrait sources can traverse vertically hidden regions on wide screens;
+- wide sources can traverse horizontally on portrait screens;
+- touch bias is clamped so no empty border is revealed.
+
+## Performance baseline
+
+Active optimizations:
 
 - `pixelDensity(1)`;
-- mobile main buffer long edge `720`;
-- mobile rupture buffer scale `0.50`;
-- desktop rupture scale `0.70`;
-- mobile rupture recalculation every second rendered frame;
-- GPU palette shader with CPU fallback;
-- feedback buffers run at reduced resolution;
+- mobile main buffer `720`;
+- small analysis buffers;
 - bounded decoded image pool;
-- one runtime image decode at a time;
-- common PHOTO_CRUSH disabled by default, removing one shared processing pass from every mode.
+- sequential runtime image decoding;
+- feedback buffers at reduced resolution;
+- rupture buffer at reduced resolution;
+- mobile rupture frame skip;
+- GPU palette shader with CPU fallback;
+- composition sample-and-hold defaults to `30fps`;
+- halation/bloom removed from active modes;
+- common crush OFF.
 
-Next real-device checks:
+Performance should be judged primarily by:
 
-1. Confirm start screen shows `v0.9.1`.
-2. Confirm telemetry still reports `ENGINE 0.9.0`.
-3. Compare modes before/after disabling common crush and identify any that now feel too clean or weak.
-4. Confirm touch result still matches the four-band palette.
-5. Compare touch FPS after shader + 720 + common-crush-off baseline.
-6. Confirm the upper-left `›` button advances exactly one enabled mode per tap and does not trigger the canvas touch effect.
-7. Leave the artwork running for several minutes and watch heat, throttling and memory behavior.
+1. touch latency;
+2. heat / throttling after several minutes;
+3. long-run memory behavior;
+4. stability / crashes;
+5. aesthetic quality of frame loss;
+6. FPS only after the above.
+
+## Configuration/control architecture
+
+Canonical runtime values:
+
+`config.js`
+
+Metadata/validation:
+
+`config-schema.js`
+
+Static editor:
+
+`control/`
+
+The Control page automatically renders top-level config groups absent from schema metadata using inferred controls. Therefore `timing` is already editable under schema 1. A later schema update can add select metadata for 15/24/30/60 without requiring a runtime contract break.
+
+GitHub Pages itself cannot write repository changes directly. Local draft/export remains convenience only; repository commits remain source of truth.
+
+## Versioned visual-engine chain
+
+Relevant active tail:
+
+```text
+visual-engine-v068.js
+ -> visual-engine-v070.js
+ -> visual-engine-v080.js
+ -> visual-engine-v090.js
+ -> visual-engine-v100.js
+```
+
+Do not delete inherited engine files while later classes depend on them.
 
 ## Important edit points
 
-- `config.js` — main tuning/config values;
+- `config.js` — current tuning and timing values;
 - `config-schema.js` — control metadata;
-- `control/` — config editor/import/export;
-- `js/media-manager.js` — image archive, sets, rolling pool, shuffle-bag;
-- `js/visual-engine-v070.js` — crop-space baseline;
-- `js/visual-engine-v080.js` — config-driven mode/pipeline layer;
-- `js/visual-engine-v090.js` — shader palette + manual mode advancement;
+- `control/` — config editor;
+- `js/media-manager.js` — archive/rolling-pool policies;
+- `js/visual-engine-v070.js` — crop-space behavior;
+- `js/visual-engine-v080.js` — config-driven mode/pipeline;
+- `js/visual-engine-v090.js` — manual mode + GPU rupture palette;
+- `js/visual-engine-v100.js` — temporal cadence + deltaTime feedback normalization;
 - `js/mode-control-ui.js` — manual mode button;
-- `sketch-v066.js` — orchestrator;
-- `js/telemetry.js` — terminal-like foreground UI.
+- `sketch-v066.js` — 60fps-target outer loop;
+- `js/telemetry.js` — instrumentation/foreground text.
 
-## Known limits
+## Next checks
 
-- Disabling common crush globally may make some presets less visually dense; prefer selective future tuning over automatically restoring a blanket pass.
-- p5/Canvas2D remains the dominant renderer; only the final rupture palette is shader-accelerated.
-- Browser/WebGL support and driver behavior differ by device; GPU path must be judged empirically.
-- GitHub Pages cannot write config changes directly back to the repository.
-- JavaScript reference removal only makes decoded images garbage-collection eligible; browser GC timing is uncontrollable.
-- Fullscreen remains browser-dependent.
-- Pipeline reordering is not yet safe.
+On desktop and mobile:
+
+1. verify start screen says `v0.10.0`;
+2. verify telemetry reports `ENGINE 0.10.0`;
+3. test `compositionFps = 15 / 24 / 30 / 60`;
+4. confirm audio speed/time does not change;
+5. confirm mode button still changes exactly one mode per tap;
+6. watch preset feedback at stable 60fps and during temporary 20–30fps drops;
+7. compare decay/zoom speed rather than smoothness — smoothness must still follow actual render FPS;
+8. confirm touch rupture remains visually reactive between held composition frames;
+9. confirm common-crush remains OFF;
+10. run several minutes on mobile and watch temperature/memory.
+
+## Deferred visual experiment
+
+A very weak analog-style softness pass is under consideration. Preferred implementation is a small shader-based softening kernel, potentially paired later with restrained grain. It is **not implemented in v0.10.0**.
 
 ## Continuity rule
 
-For future DODREI work, read this file first and verify actual GitHub source before reconstructing implementation from conversation memory. At meaningful checkpoints, update this document with the current baseline, decisions, limitations and next tests.
+For future DODREI work, read this file first and verify actual GitHub implementation before relying on conversation memory. Update this file at meaningful checkpoints.

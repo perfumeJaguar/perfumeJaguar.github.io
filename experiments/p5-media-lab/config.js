@@ -2,44 +2,36 @@
  * DODREI — RUNTIME CONFIGURATION
  * =============================================================================
  * Canonical, human-editable configuration for the current browser artwork.
- *
- * Rules:
- * - Edit values, not key names, unless engine/schema code changes with them.
- * - `meta.schemaVersion` describes the config SHAPE, not the artwork version.
- * - The Control page can import older/newer files and merge compatible paths.
- * - Arrays of objects use stable `id` values so order may change safely.
- * - `window.P5LAB_CONFIG` remains as a compatibility alias for existing modules.
- *
- * Control page:
- *   ./control/
  */
-
 window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 3,
+    configRevision: 4,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.9.1",
+    version: "0.10.0",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
-
-    // Retained for later automatic mode playback. Ignored while
-    // visual.modeControl.autoAdvance is false.
     modeDurationSec: 11,
     imageSwitchSec: 0.10,
+  },
+
+  // Separate wall-clock cadence from the outer render loop.
+  // Suggested composition values: 15 | 24 | 30 | 60 fps.
+  timing: {
+    compositionFps: 30,
+    timeReferenceFps: 60,
+    maxDeltaMs: 100,
   },
 
   render: {
     pixelDensity: 1,
     background: 0,
-
-    // v0.9: mobile main processing buffer reduced from 900 -> 720.
     maxBufferLongEdgeMobile: 720,
     maxBufferLongEdgeDesktop: 1280,
     analysisWidthMobile: 128,
@@ -56,11 +48,7 @@ window.DODREI_CONFIG = {
     githubBranch: "main",
     githubImageDir: "experiments/p5-media-lab/assets/images",
     imageExtensions: ["jpg", "jpeg", "png", "webp", "gif", "avif"],
-
-    imageSets: [
-      { id: "default", subdir: "" },
-    ],
-
+    imageSets: [{ id: "default", subdir: "" }],
     activeImageLimit: 20,
     initialLoadConcurrency: 3,
     rotationBatchSize: 5,
@@ -97,7 +85,6 @@ window.DODREI_CONFIG = {
 
   visual: {
     enabled: true,
-
     sourceCropMinZoom: 1.0,
     sourceCropMaxZoom: 2.5,
     sourceCropTouchBoost: 0.0,
@@ -116,8 +103,7 @@ window.DODREI_CONFIG = {
     rgbTearMaxPx: 48,
     vignetteStrength: 0.34,
 
-    // PHOTO_CRUSH parameters are retained for later use, but the common stage
-    // is disabled by default in v0.9.1.
+    // Retained but common stage is OFF by default.
     crushContrast: 1.32,
     crushPosterizeLevels: 6,
     crushIntruderAlpha: 28,
@@ -129,8 +115,6 @@ window.DODREI_CONFIG = {
     touchRuptureFrameSkipMobile: 2,
     touchRuptureFrameSkipDesktop: 1,
 
-    // v0.9 applies this palette with a GPU filter shader when supported.
-    // The engine falls back to the former CPU pixel loop if shader setup fails.
     touchPalette: {
       thresholds: [64, 128, 192],
       colors: [
@@ -147,10 +131,8 @@ window.DODREI_CONFIG = {
     swipeFeedbackAlphaMin: 42,
     swipeFeedbackAlphaMax: 178,
 
-    // Mode order still lives in `presets`. v0.9 disables timed advancement;
-    // the small upper-left button advances using this same policy.
     modeControl: {
-      strategy: "sequence", // sequence | shuffle
+      strategy: "sequence",
       startIndex: 0,
       loop: true,
       autoAdvance: false,
@@ -204,5 +186,4 @@ window.DODREI_CONFIG = {
     importPolicy: "compatible-merge",
   },
 };
-
 window.P5LAB_CONFIG = window.DODREI_CONFIG;
