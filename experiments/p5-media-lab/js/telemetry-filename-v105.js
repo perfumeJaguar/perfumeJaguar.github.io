@@ -27,7 +27,7 @@
   Telemetry.prototype.aliasFilename = aliasFilename;
   Telemetry.prototype.render = function filenameRenderV105(snapshot) {
     const media = snapshot?.media;
-    if (!media?.sourceLabel) return baseRender.call(this, snapshot);
+    if (!media?.sourceLabel || media.sourceType !== "IMAGE") return baseRender.call(this, snapshot);
 
     const nextSnapshot = {
       ...snapshot,
