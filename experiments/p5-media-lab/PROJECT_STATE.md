@@ -151,3 +151,25 @@ No inherited engine implementation was deleted.
 - Mild GPU softness / analog texture remains under consideration and is not active.
 - PRE COMMON FX has architecture only; no effect is implemented there yet.
 - A future text layer may motivate moving `DARKEN` immediately before text.
+
+## Session-end checkpoint — 2026-08-25 23:17 KST
+
+Verified `main` before closing the session at commit `61fbc7a71aa4d3cdc5fc2d138519ff38c6223022` (`docs: update DODREI README for v0.10.6`).
+
+Confirmed working direction from this session:
+
+- v0.10.4 virtual-time separation is accepted: VISUAL SPEED controls timeline progression, BASE FPS controls sample-and-hold cadence.
+- Runtime speed presets are `0.25 / 0.50 / 0.70 / 1.00 / 1.50x`, startup at `S1 / 0.25x`.
+- Runtime controls live on the upper-right to avoid telemetry overlap.
+- `PHOTO_FULL` is the first/reference mode.
+- PRE COMMON FX is a composition-level extension point and currently empty.
+- POST COMMON FX is implemented as five independent runtime toggles: `BW / CR / HC / DK / VG`, all OFF at startup.
+- POST COMMON FX sits before touch/gesture processing and its held result is cached for performance.
+
+Next-session first checks:
+
+1. Visually test `BW / CR / HC / DK / VG` independently and in combinations on mobile.
+2. Tune `HC`, `DK`, and `VG` strength from real-device viewing if needed.
+3. Check sustained mobile FPS/heat with POST FX enabled, especially BW and Crush.
+4. Decide later whether `DARKEN` should remain POST COMMON or move immediately before a future text layer.
+5. Mild GPU softness / analog texture remains the next optional visual experiment after POST FX tuning.
