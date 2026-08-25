@@ -1,4 +1,4 @@
-/** DODREI — tiny runtime controls: mode step + composition cadence. */
+/** DODREI — tiny runtime controls: mode step + base visual cadence. */
 window.addEventListener("DOMContentLoaded", () => {
   const modeButton = document.getElementById("mode-next-button");
   const fpsButton = document.getElementById("composition-fps-button");
@@ -38,8 +38,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const updateFpsButton = () => {
     const fps = currentFps();
     fpsButton.textContent = String(fps);
-    fpsButton.setAttribute("aria-label", `Composition FPS ${fps}. Click to cycle.`);
-    fpsButton.title = `Composition FPS: ${fps}`;
+    fpsButton.setAttribute("aria-label", `Base visual FPS ${fps}. Click to cycle.`);
+    fpsButton.title = `Base visual FPS: ${fps}`;
   };
 
   const nextFps = (current) => {
@@ -54,13 +54,18 @@ window.addEventListener("DOMContentLoaded", () => {
     event.stopPropagation();
 
     const next = nextFps(currentFps());
-    timing.compositionFps = next;
-    updateFpsButton();
-
     const engine = window.DODREI_VISUAL_ENGINE;
-    if (engine && engine.telemetry && typeof engine.telemetry.event === "function") {
-      engine.telemetry.event(`COMPOSITION FPS ${next}`);
+
+    if (engine && typeof engine.setBaseVisualFps === "function") {
+      engine.setBaseVisualFps(next);
+    } else {
+      timing.compositionFps = next;
+      if (engine && engine.telemetry && typeof engine.telemetry.event === "function") {
+        engine.telemetry.event(`BASE VISUAL FPS ${next}`);
+      }
     }
+
+    updateFpsButton();
   });
 
   updateFpsButton();

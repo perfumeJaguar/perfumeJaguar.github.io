@@ -38,6 +38,8 @@ class P5LabTelemetry {
     const loaded=snapshot.media.imagePoolSize||0,total=snapshot.media.imagePoolTotal||0,failed=snapshot.media.imageFailedCount||0;
     const mode=this.glitchLabel(this.aliasMode(snapshot.visual.modeName),3),fx=this.glitchLabel(this.aliasFx(snapshot.visual.activeFx),9);
     const engine=snapshot.visual.engineVersion||window.P5LAB_VISUAL_ENGINE_VERSION||'BASE';
+    const baseTarget=Number(snapshot.visual.baseFpsTarget||snapshot.visual.compositionFps||0);
+    const baseActual=Number(snapshot.visual.baseFpsActual||0);
 
     const leftLines=[
       `${P5LAB_CONFIG.app.title}   V${P5LAB_CONFIG.app.version}`,
@@ -57,6 +59,7 @@ class P5LabTelemetry {
       `FRAME         ${String(frameCount).padStart(7,'0')}`,
       `TIME          ${P5LabUtils.formatTime(millis()/1000)}`,
       `FPS           ${snapshot.system.fps.toFixed(1)}`,
+      `BASE_FPS      ${baseTarget ? `${baseTarget.toFixed(0)} / ${baseActual.toFixed(1)}` : 'N/A'}`,
       `VIEWPORT      ${width} x ${height}`,
       `BUFFER        ${snapshot.system.bufferW} x ${snapshot.system.bufferH}`,
     ];

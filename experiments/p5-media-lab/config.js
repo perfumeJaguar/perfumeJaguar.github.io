@@ -7,13 +7,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 5,
+    configRevision: 6,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.10.1",
+    version: "0.10.2",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -21,8 +21,8 @@ window.DODREI_CONFIG = {
     imageSwitchSec: 0.10,
   },
 
-  // Separate wall-clock cadence from the outer render loop.
-  // Runtime FPS button cycles 15 -> 24 -> 30 -> 60.
+  // Experimental BASE VISUAL CLOCK. The runtime button cycles 15 -> 24 -> 30 -> 60.
+  // It does NOT cap the outer p5 render loop or post-FX cadence.
   timing: {
     compositionFps: 30,
     timeReferenceFps: 60,
