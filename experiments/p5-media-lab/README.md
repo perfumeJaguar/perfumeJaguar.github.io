@@ -2,7 +2,7 @@
 
 DODREI is a mobile-first browser media-art experiment built with p5.js / JavaScript and hosted on GitHub Pages.
 
-Current artwork/runtime: **v1.0.1**  
+Current artwork/runtime: **v1.0.2**  
 Current visual engine: **v1.0.0**  
 Config schema: **1**
 
@@ -50,33 +50,47 @@ fps=15|24|30|60
 speed=S1|S2|S3|S4|S5
 post=0|1
 fx=HC,LS,BL,DK     ordered POST chain; NONE is valid
-mode=<preset-id>
+mode=<preset-id | internal preset name | displayed MODE alias>
+crop=25|30          shorthand for 2.5x / 3.0x
 ```
 
-Example:
+`crop` also accepts direct values from `1.0` to `5.0`, so `crop=2.5` and `crop=25` are equivalent.
+
+Examples:
 
 ```text
-?fps=24&speed=S2&post=1&fx=HC,LS,BL,DK&mode=photo-feedback-crop
+?fps=24&speed=S2&post=1&fx=HC,LS,BL,DK&mode=photo-feedback-crop&crop=30
+?mode=NULL%2F%2FVEIL_7F&crop=25
 ```
 
-FX order in the URL is significant. `SHR` serializes the current mode, FPS, speed, POST master state, active FX states, and current FX activation order.
+For `mode`, all three forms are accepted:
+
+```text
+photo-feedback-crop   stable preset id
+PHOTO_FEEDBACK_CROP   internal preset name
+NULL//VEIL_7F         MODE text shown in telemetry
+```
+
+`SHR` always emits the stable preset id because it is cleaner and less likely to break if the display alias changes later.
+
+FX order in the URL is significant. `SHR` serializes the current mode, FPS, speed, POST master state, active FX order, and current maximum crop value.
 
 The URL preset layer is independent of the test controls, so a later public build can hide/remove the control UI while keeping the same share-link format.
 
 ## Typography / telemetry
 
-DODREI v1.0.1 uses **IBM Plex Mono** with a muted gray-green presentation instead of pure white. The treatment is intentionally restrained:
+DODREI v1.0.2 uses **IBM Plex Mono** for both DOM controls and p5 canvas telemetry. The canvas renderer now explicitly waits for/uses the webfont instead of relying on the first-frame generic monospace fallback.
 
-- primary telemetry alpha `0.56`;
-- secondary alpha `0.30`;
-- faint/event alpha `0.16`;
-- base text color approximately RGB `190 / 215 / 196`;
-- existing transient character corruption retained;
-- occasional ~1.6px line displacement;
-- very slow ±1px overall drift;
-- no text blur, multi-shadow stack, or chromatic split.
+The telemetry color is now neutral off-gray rather than gray-green:
 
-The goal is a dry institutional/backrooms feel without adding meaningful rendering cost or turning the UI into a generic glitch effect.
+```text
+text color        RGB 214 / 214 / 210
+primary alpha     0.52
+secondary alpha   0.28
+faint/event alpha 0.14
+```
+
+Existing transient character corruption remains, with occasional ~1.6px line displacement and a very slow ±1px overall drift. There is no text blur, multi-shadow stack, or chromatic split.
 
 Reusable webfont declarations live in `assets/fonts/webfonts.css` for IBM Plex Mono, Space Mono, Share Tech Mono, and VT323. IBM Plex Mono is the only one used by DODREI at present.
 
@@ -105,11 +119,11 @@ Swipe feedback remains at threshold `0.25` with strength `2.0`.
 - `js/url-preset.js` — URL override validation + share-link serializer;
 - `js/visual-engine-v1000.js` — v1 blur, POST master/touch bypass, stronger swipe feedback;
 - `js/telemetry-v107.js` — distributed text corruption;
-- `js/telemetry-v101.js` — IBM Plex Mono color/drift styling;
+- `js/telemetry-v102.js` — explicit IBM Plex Mono canvas telemetry renderer;
 - `js/mode-control-ui.js` — test controls + share button;
 - `assets/fonts/webfonts.css` — shared free webfont registry;
 - `PROJECT_STATE.md` — implementation checkpoint.
 
 ## Performance note
 
-Telemetry styling uses only font/color/alpha/coordinate changes. The new URL/share layer is event-driven. Neither adds a meaningful per-frame graphics cost. BL is still the comparatively expensive global FX because blur samples neighboring pixels, but it remains deliberately weak.
+Telemetry styling uses only font/color/alpha/coordinate changes. The URL/share layer is event-driven. Neither adds a meaningful graphics cost. BL is still the comparatively expensive global FX because blur samples neighboring pixels, but it remains deliberately weak.
