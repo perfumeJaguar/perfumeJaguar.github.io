@@ -1,28 +1,30 @@
 window.PORTFOLIO = {
   site: {
     name: "Hoyeon Choi",
-    intro: "Jazz guitarist, media artist, photographer and filmmaker working across sound, image, performance and interactive media.",
-    note: "재즈 기타 연주를 기반으로 사진, 영상, 설치, 인터랙티브 웹 작업까지 매체를 확장해 왔습니다."
+    intro: "Sound, image, performance, code.",
+    note: "음악, 이미지, 퍼포먼스와 코드를 오가며 작업합니다."
   },
   categories: [
-    { id: "music", label: "Music", path: "music/", description: "Jazz guitar performance, live sessions, recordings and collaborative projects. 재즈 기타 연주와 공연, 녹음 및 협업 프로젝트." },
-    { id: "media-art", label: "Media Art", path: "media-art/", description: "Audiovisual installation, performance and interactive work connecting moving image, sound and space. 영상, 사운드, 공간을 연결하는 설치 및 퍼포먼스 작업." },
-    { id: "photography", label: "Photography", path: "photography/", description: "Portrait, artist and commissioned photography with an emphasis on people, atmosphere and restrained visual direction. 인물과 분위기를 중심으로 한 프로필 및 아티스트 사진 작업." },
-    { id: "film", label: "Film", path: "film/", description: "Cinematography, artist documentation, performance video and independently produced moving-image work. 공연 및 작업 기록, 촬영, 독립 영상 작업." },
-    { id: "web", label: "Web", path: "web/", description: "Browser-based artworks, p5.js projects and experimental interactive systems developed as an extension of audiovisual practice. p5.js를 비롯한 브라우저 기반 인터랙티브 작업." }
+    { id: "music", label: "Performance", path: "music/", description: "Jazz guitar, improvisation and live performance." },
+    { id: "media-art", label: "Installation", path: "media-art/", description: "Audiovisual, spatial and interactive work." },
+    { id: "photography", label: "Image", path: "photography/", description: "Portrait and photographic work." },
+    { id: "film", label: "Moving Image", path: "film/", description: "Film, performance documentation and moving image." },
+    { id: "web", label: "Web", path: "web/", description: "Browser-based and generative work." }
   ],
   projects: [
     {
       id: "jazz-live",
-      title: "Jazz Guitar — Selected Live Sessions",
+      title: "Selected Live Sessions",
       year: "2026",
       categories: ["music"],
       featured: true,
       status: "placeholder",
       summary: "Selected live performances and recordings centered on jazz guitar, improvisation and ensemble interaction.",
-      medium: "Jazz guitar / performance / video",
+      medium: "Performance / sound",
       location: "Selected venues",
-      aspect: "wide"
+      aspect: "portrait",
+      media: "https://www.esm.rochester.edu/uploads/Guitar-student-Jazz-Ensemble.jpg",
+      mediaCredit: "Temporary reference image — Eastman School of Music"
     },
     {
       id: "scenes",
@@ -34,7 +36,9 @@ window.PORTFOLIO = {
       summary: "An audiovisual performance project developed with prepared piano, moving image, sound and stage design as one integrated system.",
       medium: "Audiovisual / performance / installation",
       location: "Project documentation",
-      aspect: "wide"
+      aspect: "wide",
+      media: "https://medias.mutek.org/montreal/LeoLuna_AVISIONS-1_-5.jpg",
+      mediaCredit: "Temporary reference image — MUTEK Montréal"
     },
     {
       id: "portrait-work",
@@ -43,14 +47,16 @@ window.PORTFOLIO = {
       categories: ["photography"],
       featured: true,
       status: "placeholder",
-      summary: "Selected portraits, artist profiles and commissioned photography focused on natural presence rather than heavily staged direction.",
+      summary: "Selected portraits, artist profiles and commissioned photography.",
       medium: "Photography",
       location: "Selected commissions",
-      aspect: "portrait"
+      aspect: "portrait",
+      media: "https://images.squarespace-cdn.com/content/v1/553e18a4e4b0e6185162fe59/3116a479-9b15-4c1a-8a72-6b10a26a1c4a/LuXu%281%29.jpg",
+      mediaCredit: "Temporary reference image — Raine Magazine"
     },
     {
       id: "moving-image",
-      title: "Moving Image — Selected Work",
+      title: "Moving Image",
       year: "2024–2026",
       categories: ["film"],
       featured: true,
@@ -58,7 +64,9 @@ window.PORTFOLIO = {
       summary: "Selected cinematography, performance documentation and independently produced moving-image work.",
       medium: "Film / video",
       location: "Selected projects",
-      aspect: "wide"
+      aspect: "wide",
+      media: "https://assets.st-note.com/production/uploads/images/27849442/rectangle_large_type_2_95920e8b07a79bd0be87e05b9f6837b3.jpg?width=1280",
+      mediaCredit: "Temporary reference image"
     },
     {
       id: "dodrei",
@@ -67,10 +75,12 @@ window.PORTFOLIO = {
       categories: ["web", "media-art"],
       featured: true,
       status: "active",
-      summary: "An evolving browser-based image work built with p5.js, using rapid image replacement, cropping, feedback and interaction as compositional material.",
+      summary: "An evolving browser-based image work built with p5.js.",
       medium: "p5.js / interactive web",
       location: "Web",
       aspect: "wide",
+      media: "https://miro.medium.com/v2/resize%3Afit%3A2000/1%2A8fYmkdzRaT04ouzxk9lLFQ.png",
+      mediaCredit: "Temporary p5.js reference image — Processing Foundation",
       launch: "/experiments/p5-media-lab/"
     }
   ]
