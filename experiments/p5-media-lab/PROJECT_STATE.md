@@ -1,7 +1,7 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-25  
-Current artwork/runtime version: `0.10.0`  
+Current artwork/runtime version: `0.10.1`  
 Current visual engine version: `0.10.0`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
@@ -27,9 +27,44 @@ Primary behavior:
 - hold -> high-contrast four-band rupture;
 - fast swipe -> recursive feedback;
 - upper-left `›` -> manual next mode;
+- upper-left FPS number -> cycle composition cadence `15 / 24 / 30 / 60`;
 - telemetry remains a foreground visual subsystem.
 
 Automatic mode advancement is currently OFF.
+
+## v0.10.1 — runtime cadence control
+
+A small `composition-fps-button` is now rendered directly below the existing mode-step button.
+
+```text
+[ › ]  mode step
+[30 ]  composition FPS
+```
+
+Each tap cycles:
+
+```text
+15 -> 24 -> 30 -> 60 -> 15 ...
+```
+
+Implementation is intentionally lightweight:
+
+- `js/mode-control-ui.js` owns both small runtime controls;
+- the button writes directly to `P5LAB_CONFIG.timing.compositionFps`;
+- `visual-engine-v100.js` already reads that value dynamically, so engine code is unchanged;
+- button pointer/click events stop propagation and should not activate the canvas touch effect;
+- telemetry emits `COMPOSITION FPS <value>` on each change;
+- the button shows the live value rather than a generic label.
+
+Versioning:
+
+```text
+app.version = 0.10.1
+meta.configRevision = 5
+ENGINE = 0.10.0
+```
+
+No new engine version is required because the temporal engine implementation itself did not change.
 
 ## v0.10.0 — temporal cadence model
 
@@ -41,7 +76,7 @@ app.targetFps = 60
 
 This is the maximum requested render cadence, not a guarantee. Real devices may fluctuate below it.
 
-Preset composition now has an independent sample-and-hold cadence:
+Preset composition has an independent sample-and-hold cadence:
 
 ```js
 timing: {
@@ -74,13 +109,13 @@ WALL CLOCK
          actual rate may be 60, 30, 20, etc.
 ```
 
-This means lowering composition cadence does **not** globally call `frameRate(15/24/30)` and does not deliberately slow the whole application.
+Lowering composition cadence does **not** globally call `frameRate(15/24/30)` and does not deliberately slow the whole application.
 
 The intended visual result is stepped source/composition motion with smoother post processing whenever the device has headroom.
 
 ### What happens under real performance drops
 
-If the device itself falls from 60fps to 20–30fps, post FX cannot continue physically rendering at 60fps. There are simply fewer render callbacks.
+If the device itself falls from 60fps to 20–30fps, post FX cannot continue physically rendering at 60fps. There are fewer render callbacks.
 
 v0.10.0 therefore time-normalizes selected recursive feedback behavior using p5 `deltaTime`.
 
@@ -309,7 +344,7 @@ Static editor:
 
 `control/`
 
-The Control page automatically renders top-level config groups absent from schema metadata using inferred controls. Therefore `timing` is already editable under schema 1. A later schema update can add select metadata for 15/24/30/60 without requiring a runtime contract break.
+The Control page automatically renders top-level config groups absent from schema metadata using inferred controls. Therefore `timing` is editable under schema 1.
 
 GitHub Pages itself cannot write repository changes directly. Local draft/export remains convenience only; repository commits remain source of truth.
 
@@ -337,7 +372,7 @@ Do not delete inherited engine files while later classes depend on them.
 - `js/visual-engine-v080.js` — config-driven mode/pipeline;
 - `js/visual-engine-v090.js` — manual mode + GPU rupture palette;
 - `js/visual-engine-v100.js` — temporal cadence + deltaTime feedback normalization;
-- `js/mode-control-ui.js` — manual mode button;
+- `js/mode-control-ui.js` — manual mode + composition FPS runtime buttons;
 - `sketch-v066.js` — 60fps-target outer loop;
 - `js/telemetry.js` — instrumentation/foreground text.
 
@@ -345,20 +380,20 @@ Do not delete inherited engine files while later classes depend on them.
 
 On desktop and mobile:
 
-1. verify start screen says `v0.10.0`;
-2. verify telemetry reports `ENGINE 0.10.0`;
-3. test `compositionFps = 15 / 24 / 30 / 60`;
-4. confirm audio speed/time does not change;
-5. confirm mode button still changes exactly one mode per tap;
-6. watch preset feedback at stable 60fps and during temporary 20–30fps drops;
-7. compare decay/zoom speed rather than smoothness — smoothness must still follow actual render FPS;
-8. confirm touch rupture remains visually reactive between held composition frames;
-9. confirm common-crush remains OFF;
+1. verify start screen says `v0.10.1`;
+2. verify telemetry still reports `ENGINE 0.10.0`;
+3. tap FPS button and confirm `15 -> 24 -> 30 -> 60 -> 15`;
+4. confirm the numeric button label changes with the active composition cadence;
+5. confirm FPS-button taps do not activate canvas touch/rupture;
+6. confirm audio speed/time does not change;
+7. confirm mode button still changes exactly one mode per tap;
+8. watch preset feedback at stable 60fps and during temporary 20–30fps drops;
+9. compare decay/zoom speed rather than smoothness — smoothness must still follow actual render FPS;
 10. run several minutes on mobile and watch temperature/memory.
 
 ## Deferred visual experiment
 
-A very weak analog-style softness pass is under consideration. Preferred implementation is a small shader-based softening kernel, potentially paired later with restrained grain. It is **not implemented in v0.10.0**.
+A very weak analog-style softness pass is under consideration. Preferred implementation is a small shader-based softening kernel, potentially paired later with restrained grain. It is **not implemented in v0.10.1**.
 
 ## Continuity rule
 

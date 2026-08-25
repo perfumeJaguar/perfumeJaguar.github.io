@@ -2,7 +2,7 @@
 
 DODREI is a mobile-first browser media-art experiment built with **p5.js / JavaScript** and hosted on GitHub Pages.
 
-Current baseline: **v0.10.0**  
+Current baseline: **v0.10.1**  
 Current visual engine: **0.10.0**  
 Current config schema: **1**
 
@@ -17,13 +17,39 @@ Interaction:
 - no touch: composition runs inside the current mode;
 - hold: high-contrast four-band rupture + stronger audio processing;
 - fast swipe while holding: recursive swipe feedback;
-- upper-left `›`: manually advance to the next enabled visual mode.
+- upper-left `›`: manually advance to the next enabled visual mode;
+- upper-left FPS number: cycle composition cadence through `15 -> 24 -> 30 -> 60`.
 
 Automatic visual-mode advancement remains disabled by default.
 
+## v0.10.1 — runtime composition FPS button
+
+A second small runtime control now sits directly below the mode-step button.
+
+```text
+[ › ]  next visual mode
+[30 ]  composition FPS
+```
+
+The FPS button cycles:
+
+```text
+15 -> 24 -> 30 -> 60 -> 15 ...
+```
+
+It changes only `timing.compositionFps` at runtime. It does **not** lower the outer p5 render target and does not change audio playback speed/time. `js/visual-engine-v100.js` already reads `P5LAB_CONFIG.timing.compositionFps` dynamically, so no new engine layer is required for this UI.
+
+The current value is shown on the button and each change emits telemetry such as:
+
+```text
+COMPOSITION FPS 24
+```
+
+The control intercepts pointer/click propagation so tapping it should not trigger the canvas touch/rupture gesture.
+
 ## v0.10.0 — temporal cadence
 
-DODREI now separates **composition cadence** from the outer p5 render loop.
+DODREI separates **composition cadence** from the outer p5 render loop.
 
 ```text
 outer render loop       target 60fps / actual device rate
@@ -126,7 +152,7 @@ Pipeline stages have stable IDs and enable/disable state. Order remains locked b
 
 `config.js` is canonical runtime data.
 
-`config-schema.js` provides optional editor metadata. The Control page also discovers unknown/additive config groups and infers basic controls, so the new `timing` group is editable without changing the schema contract.
+`config-schema.js` provides optional editor metadata. The Control page also discovers unknown/additive config groups and infers basic controls, so the `timing` group remains editable without changing the schema contract.
 
 Control page:
 
@@ -144,7 +170,7 @@ GitHub Pages cannot write repository files directly. Exported configs must still
 - `js/visual-engine-v080.js` — config-driven mode/pipeline;
 - `js/visual-engine-v090.js` — manual mode + GPU rupture palette;
 - `js/visual-engine-v100.js` — composition cadence + delta-time feedback normalization;
-- `js/mode-control-ui.js` — manual mode button;
+- `js/mode-control-ui.js` — mode-step + runtime composition-FPS buttons;
 - `sketch-v066.js` — outer 60fps-target orchestrator;
 - `PROJECT_STATE.md` — implementation authority/checkpoint.
 
