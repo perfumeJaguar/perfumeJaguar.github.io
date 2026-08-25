@@ -46,10 +46,11 @@ canvas {
   height: 100% !important;
 }
 
-/* Small visible controls, separated from the telemetry-heavy left edge. */
+/* Runtime controls live on the telemetry-light upper-right edge. */
 #mode-next-button,
 #composition-fps-button,
-#cut-speed-button {
+#cut-speed-button,
+.post-common-fx-button {
   position: fixed;
   z-index: 900;
   right: calc(6px + var(--safe-right));
@@ -86,27 +87,50 @@ canvas {
   letter-spacing: -.02em;
 }
 
+/* Small gap separates transport/timing from POST COMMON FX. */
+#post-fx-bw-button       { top: calc(102px + var(--safe-top)); }
+#post-fx-crush-button    { top: calc(132px + var(--safe-top)); }
+#post-fx-contrast-button { top: calc(162px + var(--safe-top)); }
+#post-fx-darken-button   { top: calc(192px + var(--safe-top)); }
+#post-fx-vignette-button { top: calc(222px + var(--safe-top)); }
+
+.post-common-fx-button {
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+
 #mode-next-button:hover,
 #mode-next-button:focus-visible,
 #composition-fps-button:hover,
 #composition-fps-button:focus-visible,
 #cut-speed-button:hover,
-#cut-speed-button:focus-visible {
+#cut-speed-button:focus-visible,
+.post-common-fx-button:hover,
+.post-common-fx-button:focus-visible {
   color: rgba(255,255,255,.9);
   border-color: rgba(255,255,255,.48);
   background: rgba(0,0,0,.5);
   outline: none;
 }
 
+.post-common-fx-button[aria-pressed="true"] {
+  color: rgba(255,255,255,.98);
+  border-color: rgba(255,255,255,.72);
+  background: rgba(255,255,255,.18);
+}
+
 #mode-next-button:active,
 #composition-fps-button:active,
-#cut-speed-button:active {
+#cut-speed-button:active,
+.post-common-fx-button:active {
   transform: translateY(1px);
 }
 
 #mode-next-button[hidden],
 #composition-fps-button[hidden],
-#cut-speed-button[hidden] {
+#cut-speed-button[hidden],
+.post-common-fx-button[hidden] {
   display: none;
 }
 
