@@ -16,7 +16,7 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.6.7",
+    version: "0.6.8",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -96,9 +96,7 @@ window.P5LAB_CONFIG = {
     rgbTearMaxPx: 48,
     vignetteStrength: 0.34,
 
-    // HALATION / BLOOM is intentionally removed from the active experiment in
-    // v0.6.7. Blur was comparatively expensive on mobile and is not needed for
-    // the current photo-destruction study.
+    // HALATION / BLOOM remains removed from the active experiment.
 
     // Common PHOTO_CRUSH applied to every preset before touch rupture.
     crushContrast: 1.32,
@@ -106,21 +104,18 @@ window.P5LAB_CONFIG = {
     crushIntruderAlpha: 28,
 
     // TOUCH RUPTURE ----------------------------------------------------------
-    // v0.6.7 performance policy:
-    // - process the rupture at lower internal resolution;
-    // - mobile recalculates it every 2nd rendered frame;
-    // - skipped frames reuse the previous rupture image;
-    // - former WHITE band is now vivid red.
+    // v0.6.8:
+    // - mobile rupture resolution raised from 0.45 to 0.50;
+    // - mobile still recalculates every 2nd rendered frame;
+    // - palette is BLACK / DARK GRAY / MUTED RED / WHITE.
     touchRuptureContrast: 3.2,
     touchRuptureBands: 13,
-    touchRuptureResolutionScaleMobile: 0.45,
+    touchRuptureResolutionScaleMobile: 0.50,
     touchRuptureResolutionScaleDesktop: 0.70,
     touchRuptureFrameSkipMobile: 2,
     touchRuptureFrameSkipDesktop: 1,
 
     // SWIPE FEEDBACK ---------------------------------------------------------
-    // 0.0 = stationary, 1.0 = very fast swipe. Feedback stays completely off
-    // until speed passes 0.30, then fades in progressively.
     swipeFeedbackThreshold: 0.30,
     swipeFeedbackScaleMin: 0.985,
     swipeFeedbackScaleMax: 1.012,
