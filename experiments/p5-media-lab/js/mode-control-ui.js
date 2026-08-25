@@ -20,6 +20,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const POST_FX_OPTIONS = [
     { id: "post-fx-bw-button", key: "bw", label: "BW", title: "Binary black / white" },
     { id: "post-fx-gray-button", key: "grayscale", label: "GS", title: "Grayscale" },
+    { id: "post-fx-low-sat-button", key: "lowSaturation", label: "LS", title: "Low saturation" },
     { id: "post-fx-crush-button", key: "crush", label: "CR", title: "Common Crush" },
     { id: "post-fx-contrast-button", key: "highContrast", label: "HC", title: "High contrast color" },
     { id: "post-fx-darken-button", key: "darken", label: "DK", title: "Darken overlay" },
