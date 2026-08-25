@@ -11,12 +11,15 @@
 class P5LabVisualEngineV070 extends P5LabVisualEngineV068 {
   adaptiveCropFor(g,img,seed,interaction,audio,intensity=1){
     const base=super.cropFor(seed,interaction,audio,intensity);
+    const minZoom=Math.max(1,Number(this.config.sourceCropMinZoom)||1);
+    const maxZoom=Math.max(minZoom,Number(this.config.sourceCropMaxZoom)||minZoom);
+    const zoom=P5LabUtils.clamp(base.zoom,minZoom,maxZoom);
     const size=P5LabUtils.sourceSize(img);
-    if(!size.width||!size.height||!g||!g.width||!g.height)return base;
+    if(!size.width||!size.height||!g||!g.width||!g.height)return {zoom,ox:0,oy:0};
 
     const coverScale=Math.max(g.width/size.width,g.height/size.height);
-    const dw=size.width*coverScale*base.zoom;
-    const dh=size.height*coverScale*base.zoom;
+    const dw=size.width*coverScale*zoom;
+    const dh=size.height*coverScale*zoom;
     const overflowX=Math.max(0,dw-g.width);
     const overflowY=Math.max(0,dh-g.height);
     const panFraction=P5LabUtils.clamp(Number(this.config.sourceCropOverflowPan)||1,0,1);
@@ -35,7 +38,7 @@ class P5LabVisualEngineV070 extends P5LabVisualEngineV068 {
     const maxY=overflowY*.5;
 
     return {
-      zoom:base.zoom,
+      zoom,
       ox:P5LabUtils.clamp(rx+touchX,-maxX,maxX),
       oy:P5LabUtils.clamp(ry+touchY,-maxY,maxY),
     };
