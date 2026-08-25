@@ -4,9 +4,9 @@
  * Canonical, human-editable configuration for the current browser artwork.
  */
 window.DODREI_CONFIG = {
-  meta: { project: "DODREI", schemaVersion: 1, configRevision: 28, generatedBy: "hand-or-control" },
-  app: { title: "DODREI", version: "1.0.17", targetFps: 60, requestFullscreenOnStart: false, preventContextMenu: true, modeDurationSec: 11, imageSwitchSec: 0.10, startScreenHoldMs: 2000, telemetryStartDelayMs: 3000, telemetryStaggerMs: 200, visualDimDelayAfterTelemetryMs: 3000, visualFullDelayAfterDimMs: 1000 },
-  timing: { compositionFps: 24, visualSpeedLevel: "S2", visualSpeedMultiplier: 0.50, visualStateIntervalMs: 45, cutSpeedLevel: "S2", cutIntervalMs: 240, timeReferenceFps: 60, maxDeltaMs: 100 },
+  meta: { project: "DODREI", schemaVersion: 1, configRevision: 29, generatedBy: "hand-or-control" },
+  app: { title: "DODREI", version: "1.0.18", targetFps: 60, requestFullscreenOnStart: false, preventContextMenu: true, modeDurationSec: 11, imageSwitchSec: 0.10, startScreenHoldMs: 2000, telemetryStartDelayMs: 3000, telemetryStaggerMs: 200, visualDimDelayAfterTelemetryMs: 3000, visualFullDelayAfterDimMs: 1000 },
+  timing: { compositionFps: 15, visualSpeedLevel: "S2", visualSpeedMultiplier: 0.50, visualStateIntervalMs: 45, cutSpeedLevel: "S2", cutIntervalMs: 240, timeReferenceFps: 60, maxDeltaMs: 100 },
   render: { pixelDensity: 1, background: 0, maxBufferLongEdgeMobile: 720, maxBufferLongEdgeDesktop: 1280, mobileMainOversample: 2.0, analysisWidthMobile: 128, analysisWidthDesktop: 180, analysisEveryNFrames: 2, analysisPixelStep: 2 },
   media: { videosEnabled: false, autoDiscoverImages: true, githubOwner: "perfumeJaguar", githubRepo: "perfumeJaguar.github.io", githubBranch: "main", githubImageDir: "experiments/p5-media-lab/assets/images", imageExtensions: ["jpg","jpeg","png","webp","gif","avif"], imageSets: [{ id: "default", subdir: "" }], activeImageLimit: 20, initialLoadConcurrency: 3, rotationBatchSize: 5, rotationIntervalSec: 5, rotationLoadConcurrency: 1, rotationPolicy: "shuffle-bag" },
   interaction: { smoothing: 0.14, pressBoost: 1.35 },
@@ -21,7 +21,7 @@ window.DODREI_CONFIG = {
     mosaicColsMobile: 18, mosaicColsDesktop: 32, photoCutMs: 90, rgbTearMaxPx: 48, vignetteStrength: 0.34,
     crushContrast: 1.32, crushPosterizeLevels: 6, crushIntruderAlpha: 28,
     preCommonFx: {},
-    postCommonFx: { masterEnabled: true, bw: false, grayscale: false, lowSaturation: true, blur: true, feedback: false, crush: false, highContrast: true, darken: false, strongVignette: false, order: ["highContrast","lowSaturation","blur"], bwThreshold: 0.50, lowSaturationAmount: 0.50, blurAmountPx: 1.20, feedbackRetainAlpha: 96, feedbackScale: 0.992, feedbackCurrentAlpha: 236, feedbackBufferScale: 0.60, blurRenderScaleMobile: 0.65, blurRenderScaleDesktop: 1.0, highContrastAmount: 3.20, highContrastSaturation: 1.08, darkenAlpha: 0.46, strongVignetteStrength: 0.96, strongVignetteInner: 0.16, strongVignetteOuter: 0.72 },
+    postCommonFx: { masterEnabled: true, bw: false, grayscale: true, lowSaturation: false, blur: false, feedback: true, crush: false, highContrast: true, darken: false, strongVignette: false, order: ["highContrast","grayscale","feedback"], bwThreshold: 0.50, lowSaturationAmount: 0.50, blurAmountPx: 1.20, feedbackRetainAlpha: 96, feedbackScale: 0.992, feedbackCurrentAlpha: 236, feedbackBufferScale: 0.60, blurRenderScaleMobile: 0.65, blurRenderScaleDesktop: 1.0, highContrastAmount: 3.20, highContrastSaturation: 1.08, darkenAlpha: 0.46, strongVignetteStrength: 0.96, strongVignetteInner: 0.16, strongVignetteOuter: 0.72 },
     touchRuptureContrast: 3.2, touchRuptureBands: 13, touchRuptureResolutionScaleMobile: 0.50, touchRuptureResolutionScaleDesktop: 0.70, touchRuptureFrameSkipMobile: 2, touchRuptureFrameSkipDesktop: 1,
     touchPalette: { thresholds: [64,128,192], colors: [[0,0,0],[72,72,72],[238,94,90],[246,246,244]] },
     swipeFeedbackThreshold: 0.25, swipeFeedbackStrength: 2.00, swipeFeedbackScaleMin: 0.985, swipeFeedbackScaleMax: 1.012, swipeFeedbackAlphaMin: 42, swipeFeedbackAlphaMax: 178,
