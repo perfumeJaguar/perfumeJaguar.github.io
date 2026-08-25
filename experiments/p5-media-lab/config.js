@@ -7,13 +7,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 12,
+    configRevision: 13,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.10.8",
+    version: "1.0.0",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -126,11 +126,14 @@ window.DODREI_CONFIG = {
     preCommonFx: {},
 
     // POST COMMON FX runs after MODE/PRE and before touch/gesture FX.
-    // Active effects are applied in this order; turning an effect on appends it.
+    // The master switch bypasses the whole chain without changing its members/order.
+    // Touch rupture also bypasses POST transiently, without mutating master state.
     postCommonFx: {
+      masterEnabled: true,
       bw: false,
       grayscale: false,
       lowSaturation: true,
+      blur: false,
       crush: true,
       highContrast: true,
       darken: true,
@@ -138,6 +141,7 @@ window.DODREI_CONFIG = {
       order: ["highContrast", "crush", "lowSaturation", "darken"],
       bwThreshold: 0.50,
       lowSaturationAmount: 0.50,
+      blurAmountPx: 1.20,
       highContrastAmount: 3.20,
       highContrastSaturation: 1.08,
       darkenAlpha: 0.46,
@@ -163,7 +167,8 @@ window.DODREI_CONFIG = {
       ],
     },
 
-    swipeFeedbackThreshold: 0.30,
+    swipeFeedbackThreshold: 0.25,
+    swipeFeedbackStrength: 2.00,
     swipeFeedbackScaleMin: 0.985,
     swipeFeedbackScaleMax: 1.012,
     swipeFeedbackAlphaMin: 42,
