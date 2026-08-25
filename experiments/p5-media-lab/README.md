@@ -2,163 +2,116 @@
 
 DODREI is a mobile-first browser media-art experiment built with **p5.js / JavaScript** and hosted on GitHub Pages.
 
-Current baseline: **v0.10.5**  
-Current visual engine: **0.10.4**  
+Current baseline: **v0.10.6**  
+Current visual engine: **0.10.5**  
 Current config schema: **1**
 
-The repository path remains `experiments/p5-media-lab/` for continuity.
+## Runtime controls
 
-## Current artistic baseline
-
-The active build is PHOTO ONLY. Still images are discovered from GitHub and a bounded decoded working set remains resident. One original MP3, mouse / one-finger touch, visual presets, and terminal-like telemetry form the piece.
-
-Interaction:
-
-- no touch: composition runs inside the current mode;
-- hold: high-contrast four-band rupture + stronger audio processing;
-- fast swipe while holding: recursive swipe feedback;
-- upper-right `›`: manually advance to the next enabled visual mode;
-- upper-right FPS number: cycle BASE VISUAL FPS `15 -> 24 -> 30 -> 60`;
-- upper-right `S1...S5`: cycle VISUAL SPEED.
-
-Automatic visual-mode advancement remains disabled by default.
-
-## v0.10.5 — five-step speed range + control placement
-
-The v0.10.4 virtual-time engine remains unchanged. Runtime speed presets are now:
+Upper-right:
 
 ```text
-S1 0.25x -> state ≈ 5.6 Hz  / cut ≈ 960 ms
-S2 0.50x -> state ≈ 11.1 Hz / cut ≈ 480 ms
-S3 0.70x -> state ≈ 15.6 Hz / cut ≈ 343 ms
-S4 1.00x -> state ≈ 22.2 Hz / cut ≈ 240 ms
-S5 1.50x -> state ≈ 33.3 Hz / cut ≈ 160 ms
+[ › ]  next visual mode
+[30 ]  BASE VISUAL FPS: 15 -> 24 -> 30 -> 60
+[S1 ]  VISUAL SPEED: S1 -> S2 -> S3 -> S4 -> S5
+
+[BW ]  binary black/white
+[CR ]  Common Crush
+[HC ]  high contrast color
+[DK ]  darken overlay
+[VG ]  strong vignette
 ```
 
-Startup default is now **S1 / 0.25x**.
-
-Runtime controls moved from the upper-left to the **upper-right** because the upper-left is occupied by telemetry on mobile.
+Speed presets:
 
 ```text
-                              [ › ]
-                              [30 ]
-                              [S1 ]
+S1 0.25x
+S2 0.50x
+S3 0.70x
+S4 1.00x
+S5 1.50x
 ```
 
-## v0.10.4 — virtual visual time
+Startup default is **S1 / 0.25x** at BASE FPS **30**. All POST FX buttons start OFF.
 
-The visible base timeline is separated from sampling FPS.
+## Visual architecture
 
 ```text
-VISUAL SPEED
-  advances VIRTUAL TIME
-    ├── crop / layout / blend state
-    ├── image-choice cut state
-    └── LUMA/time-driven base state
-
-BASE VISUAL FPS
-  15 / 24 / 30 / 60
-  samples the current virtual state and holds it
-
-POST FX
-  every available outer render frame
-  touch rupture / recursive feedback / swipe / vignette / waveform
+COMPOSITION
+├─ MODE
+└─ PRE COMMON FX      [same level as MODE; currently empty]
+        ↓
+POST COMMON FX        [runtime toggles]
+├─ CRUSH
+├─ HIGH CONTRAST
+├─ BINARY B/W
+├─ DARKEN
+└─ STRONG VIGNETTE
+        ↓
+INTERACTION / FINAL FX
+├─ touch rupture
+├─ preset feedback
+├─ swipe feedback
+├─ mild vignette
+└─ waveform
 ```
 
-The important rule is:
+POST COMMON FX is deliberately before touch/gesture processing. Its output is cached from the held base composition and recomputed only when composition changes or a toggle changes.
+
+`DARKEN` may later move immediately before a future text layer if that gives better readability control.
+
+## Mode order
+
+`PHOTO_FULL` is the first, clean reference mode.
 
 ```text
-VISUAL SPEED = how fast the artwork timeline progresses
-BASE FPS     = how often that timeline is sampled
+PHOTO_FULL
+PHOTO_FEEDBACK_CROP
+PHOTO_RAPID_CROP
+PHOTO_RGB_TEAR
+PHOTO_SHARD_SWAP
+PHOTO_DOUBLE_BLEND
+PHOTO_BLEND_CYCLE
+LUMA_BLOCKS
+LUMA_VOID
+LUMA_MONO
+LUMA_DITHER
+LUMA_PULSE
+```
+
+## Temporal model
+
+```text
+VISUAL SPEED = timeline progression speed
+BASE FPS     = sampling cadence of that timeline
 POST FX FPS  = actual available render callbacks
 ```
 
-Changing visual speed preserves the accumulated virtual timeline position; it only changes future progression. Changing BASE FPS does not change timeline speed.
+The cumulative virtual-time model lives in `js/visual-engine-v104.js`; PRE/POST COMMON FX lives in `js/visual-engine-v105.js`.
 
-Telemetry exposes:
-
-```text
-FPS         actual outer p5 render rate
-BASE_FPS    target / measured base refresh rate
-VIS_SPEED   level / multiplier
-STATE_HZ    effective virtual visual-state rate
-CUT_EST     estimated real-time image cut interval
-```
-
-## Current performance baseline
+## Performance baseline
 
 - `pixelDensity(1)`;
 - mobile main processing buffer long edge: `720`;
 - desktop main buffer long edge: `1280`;
 - mobile rupture buffer scale: `0.50`;
 - mobile rupture recalculation every second rendered frame;
-- four-band rupture palette uses a p5 GPU filter shader with CPU fallback;
-- feedback runs on reduced-resolution buffers;
+- GPU four-band touch palette with CPU fallback;
+- reduced-resolution feedback buffers;
 - decoded active image pool: `20`;
-- staging pool: up to `5`;
-- runtime image decode concurrency: `1`;
-- halation/bloom remains removed;
-- common `PHOTO_CRUSH` remains implemented but is **OFF by default**.
-
-## Mode model
-
-Current 12 presets:
-
-- PHOTO_FEEDBACK_CROP
-- PHOTO_RAPID_CROP
-- PHOTO_RGB_TEAR
-- PHOTO_SHARD_SWAP
-- PHOTO_DOUBLE_BLEND
-- PHOTO_BLEND_CYCLE
-- PHOTO_FULL
-- LUMA_BLOCKS
-- LUMA_VOID
-- LUMA_MONO
-- LUMA_DITHER
-- LUMA_PULSE
-
-## Visual pipeline
-
-```text
-preset composition     [BASE VISUAL FPS sample-and-hold]
-  -> common crush      [OFF]
-  -> touch rupture
-  -> preset feedback
-  -> swipe feedback
-  -> vignette
-  -> waveform
-```
-
-## Important timing config
-
-```js
-timing: {
-  compositionFps: 30,
-  visualSpeedLevel: "S1",
-  visualSpeedMultiplier: 0.25,
-  visualStateIntervalMs: 45,
-  cutSpeedLevel: "S1", // legacy mirror
-  cutIntervalMs: 240,  // measured on virtual time
-  timeReferenceFps: 60,
-  maxDeltaMs: 100,
-}
-```
+- staging: up to `5`;
+- halation/bloom removed;
+- Common Crush starts OFF and can be toggled as POST COMMON FX.
 
 ## Important files
 
-- `config.js` — current runtime values;
-- `js/visual-engine-v100.js` — delta-time feedback normalization;
-- `js/visual-engine-v102.js` — sampled BASE VISUAL CLOCK;
-- `js/visual-engine-v103.js` — intermediate cut-clock experiment;
-- `js/visual-engine-v104.js` — cumulative virtual visual-time model;
-- `js/mode-control-ui.js` — mode/FPS/visual-speed runtime buttons and speed presets;
-- `js/telemetry.js` — FPS/base/speed diagnostics;
+- `config.js` — runtime values and POST COMMON FX parameters;
+- `js/visual-engine-v104.js` — cumulative virtual visual time;
+- `js/visual-engine-v105.js` — PRE/POST COMMON FX architecture and cached global effects;
+- `js/mode-control-ui.js` — mode/FPS/speed/POST-FX buttons;
+- `js/telemetry.js` — runtime diagnostics;
 - `PROJECT_STATE.md` — implementation checkpoint.
 
-## Rollback
+## Deferred
 
-If the virtual-time experiment is wrong, remove the `visual-engine-v104.js` script load from `index.html`; v0.10.3 becomes active again. Earlier engine implementations remain intact.
-
-## Deferred visual experiment
-
-A very mild GPU softness pass is still under consideration. It is not active yet.
+A mild GPU softness / analog texture pass is still under consideration. PRE COMMON FX has a hook but no active effect yet.
