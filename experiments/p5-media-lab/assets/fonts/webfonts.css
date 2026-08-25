@@ -1,0 +1,12 @@
+/* Shared free webfont registry for DODREI / future web design experiments.
+ * Runtime uses IBM Plex Mono; the other families are registered for later use.
+ * Hosted by Google Fonts; local binary font files are not embedded here.
+ */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&family=VT323&display=swap");
+
+:root {
+  --font-ibm-plex-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-space-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-share-tech-mono: "Share Tech Mono", ui-monospace, monospace;
+  --font-vt323: "VT323", ui-monospace, monospace;
+}
