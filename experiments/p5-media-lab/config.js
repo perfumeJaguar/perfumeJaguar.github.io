@@ -4,9 +4,9 @@
  * Canonical, human-editable configuration for the current browser artwork.
  */
 window.DODREI_CONFIG = {
-  meta: { project: "DODREI", schemaVersion: 1, configRevision: 18, generatedBy: "hand-or-control" },
-  app: { title: "DODREI", version: "1.0.5", targetFps: 60, requestFullscreenOnStart: false, preventContextMenu: true, modeDurationSec: 11, imageSwitchSec: 0.10 },
-  timing: { compositionFps: 24, visualSpeedLevel: "S1", visualSpeedMultiplier: 0.25, visualStateIntervalMs: 45, cutSpeedLevel: "S1", cutIntervalMs: 240, timeReferenceFps: 60, maxDeltaMs: 100 },
+  meta: { project: "DODREI", schemaVersion: 1, configRevision: 19, generatedBy: "hand-or-control" },
+  app: { title: "DODREI", version: "1.0.6", targetFps: 60, requestFullscreenOnStart: false, preventContextMenu: true, modeDurationSec: 11, imageSwitchSec: 0.10 },
+  timing: { compositionFps: 24, visualSpeedLevel: "S2", visualSpeedMultiplier: 0.50, visualStateIntervalMs: 45, cutSpeedLevel: "S2", cutIntervalMs: 240, timeReferenceFps: 60, maxDeltaMs: 100 },
   render: { pixelDensity: 1, background: 0, maxBufferLongEdgeMobile: 720, maxBufferLongEdgeDesktop: 1280, analysisWidthMobile: 128, analysisWidthDesktop: 180, analysisEveryNFrames: 2, analysisPixelStep: 2 },
   media: { videosEnabled: false, autoDiscoverImages: true, githubOwner: "perfumeJaguar", githubRepo: "perfumeJaguar.github.io", githubBranch: "main", githubImageDir: "experiments/p5-media-lab/assets/images", imageExtensions: ["jpg","jpeg","png","webp","gif","avif"], imageSets: [{ id: "default", subdir: "" }], activeImageLimit: 20, initialLoadConcurrency: 3, rotationBatchSize: 5, rotationIntervalSec: 5, rotationLoadConcurrency: 1, rotationPolicy: "shuffle-bag" },
   interaction: { smoothing: 0.14, pressBoost: 1.35 },
@@ -14,14 +14,14 @@ window.DODREI_CONFIG = {
   visual: {
     enabled: true,
     sceneImageSelectionPolicy: "independent-with-replacement",
-    sourceCropMinZoom: 1.0, sourceCropMaxZoom: 5.0, sourceCropTouchBoost: 0.0, sourceCropPanFactor: 0.42, sourceCropOverflowPan: 1.0,
+    sourceCropMinZoom: 1.0, sourceCropMaxZoom: 9.0, sourceCropTouchBoost: 0.0, sourceCropPanFactor: 0.42, sourceCropOverflowPan: 1.0,
     touchTransitionSlowdown: 0.0,
     touchPlaybackSpeedMultiplier: 0.50,
     feedbackScale: 0.994, feedbackAlpha: 154, feedbackResolutionScaleMobile: 0.52, feedbackResolutionScaleDesktop: 0.72,
     mosaicColsMobile: 18, mosaicColsDesktop: 32, photoCutMs: 90, rgbTearMaxPx: 48, vignetteStrength: 0.34,
     crushContrast: 1.32, crushPosterizeLevels: 6, crushIntruderAlpha: 28,
     preCommonFx: {},
-    postCommonFx: { masterEnabled: true, bw: false, grayscale: false, lowSaturation: true, blur: true, crush: false, highContrast: true, darken: true, strongVignette: false, order: ["highContrast","lowSaturation","blur","darken"], bwThreshold: 0.50, lowSaturationAmount: 0.50, blurAmountPx: 1.20, highContrastAmount: 3.20, highContrastSaturation: 1.08, darkenAlpha: 0.46, strongVignetteStrength: 0.96, strongVignetteInner: 0.16, strongVignetteOuter: 0.72 },
+    postCommonFx: { masterEnabled: true, bw: false, grayscale: false, lowSaturation: true, blur: true, crush: false, highContrast: true, darken: false, strongVignette: false, order: ["highContrast","lowSaturation","blur"], bwThreshold: 0.50, lowSaturationAmount: 0.50, blurAmountPx: 1.20, highContrastAmount: 3.20, highContrastSaturation: 1.08, darkenAlpha: 0.46, strongVignetteStrength: 0.96, strongVignetteInner: 0.16, strongVignetteOuter: 0.72 },
     touchRuptureContrast: 3.2, touchRuptureBands: 13, touchRuptureResolutionScaleMobile: 0.50, touchRuptureResolutionScaleDesktop: 0.70, touchRuptureFrameSkipMobile: 2, touchRuptureFrameSkipDesktop: 1,
     touchPalette: { thresholds: [64,128,192], colors: [[0,0,0],[72,72,72],[238,94,90],[246,246,244]] },
     swipeFeedbackThreshold: 0.25, swipeFeedbackStrength: 2.00, swipeFeedbackScaleMin: 0.985, swipeFeedbackScaleMax: 1.012, swipeFeedbackAlphaMin: 42, swipeFeedbackAlphaMax: 178,
