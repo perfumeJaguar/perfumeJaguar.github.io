@@ -2,7 +2,7 @@
 
 DODREI is a mobile-first browser media-art experiment built with p5.js / JavaScript and hosted on GitHub Pages.
 
-Current artwork/runtime: **v1.0.7**  
+Current artwork/runtime: **v1.0.9**  
 Current visual engine: **v1.0.7**  
 Config schema: **1**
 
@@ -17,71 +17,37 @@ POST MASTER  ON
 POST CHAIN   HC -> LS -> BL
 TOUCH SPEED  0.50x visual playback while held
 FULLSCREEN   OFF
+UI CONTROLS  HIDDEN by default
 ```
 
-These visual defaults match:
+Canonical visual defaults:
 
 ```text
 ?fps=24&speed=S2&post=1&fx=HC,LS,BL&mode=photo-double-blend&crop=10-90
 ```
 
-When those URL parameters are absent, the config above is used. URL parameters still override only the values they explicitly provide.
+## v1.0.9 staged startup
+
+After the user presses START:
+
+```text
+0.0s  soundtrack starts immediately
+1.0s  telemetry / information interface appears
+4.0s  visual composition begins rendering
+```
+
+The right-side test/control UI starts hidden. The faint `UI` button remains visible at the lower-right and can reveal the controls at any time.
+
+## v1.0.8 presentation / utility behavior
+
+- soundtrack: `assets/audio/20220302 - sarabande.mp3`;
+- `PAU` pauses both visual playback and audible music output;
+- telemetry opacity is half of the prior values (`0.26 / 0.14 / 0.07`);
+- `UI` hides/shows the right-side runtime controls without hiding telemetry.
 
 ## v1.0.7 mobile sharpness pass
 
-Mobile ordinary image rendering now uses `2.0x` internal oversampling. A CSS viewport around `360 x 642`, for example, renders the main composition at roughly `720 x 1284` before being displayed at the same physical page size.
-
-Only the ordinary composition and common POST buffers are enlarged. Feedback, swipe feedback, touch rupture, and analyzer buffers keep their previous mobile resolutions, so the heaviest interaction paths do not inherit the full 4x pixel cost. Desktop rendering is unchanged.
-
-Configuration:
-
-```text
-mobileMainOversample       2.0
-mobile main long-edge cap  1440 effective
-mobile rupture scale       0.50 unchanged
-mobile analyzer width      128 unchanged
-```
-
-## v1.0.6 default / presentation update
-
-- default speed is `S2 / 0.50x`;
-- default crop range is `1.0x .. 9.0x`;
-- default POST chain is `HC -> LS -> BL`, with `DK` starting OFF;
-- `crop=10-90` means `1.0x .. 9.0x`;
-- the start-screen `DODREI` title is smaller and significantly dimmer.
-
-## Presentation / utility behavior
-
-The start screen is centered, neutral gray, and uses **Cormorant Garamond**. Runtime telemetry and test controls remain IBM Plex Mono. Automatic fullscreen entry is removed.
-
-Telemetry source filenames are display-obfuscated only: letters in the basename are replaced once per page session, while digits, punctuation, extension, real filename, and file path remain untouched.
-
-Lower-right utility controls:
-
-```text
-[PAU] pause/resume visual playback
-[MUT] mute/unmute dry + wet audio
-[SHR] copy current settings as a share URL
-```
-
-## Touch playback behavior
-
-While pointer/touch is held, the virtual visual timeline advances at half speed. Image cuts and crop/layout evolution slow together. Touch rupture, swipe feedback, POST bypass behavior, audio FX, and the outer render FPS are not slowed by this setting.
-
-## Scene image selection
-
-Scene selection remains **independent per-slot random selection with replacement**. Immediate repeats and long non-repeating runs are both allowed; there is no recent-image ban, scene shuffle-bag, or duplicate suppression.
-
-## Crop behavior
-
-Crop zoom is sampled inside the configured range. Current default is `1.0x .. 9.0x`.
-
-```text
-crop=10-90   -> 1.0x .. 9.0x
-crop=12-35   -> 1.2x .. 3.5x
-```
-
-Direct values from `1.0` through `9.0` are also valid. `crop=12_35` is accepted as input; share links emit the hyphen form.
+Mobile ordinary image rendering uses `2.0x` internal oversampling. A CSS viewport around `360 x 642` renders the main composition at roughly `720 x 1284`. Feedback, swipe, touch rupture, and analyzer buffers keep their lower mobile resolutions. Desktop rendering is unchanged.
 
 ## Runtime controls
 
@@ -99,44 +65,29 @@ Direct values from `1.0` through `9.0` are also valid. `crop=12_35` is accepted 
 [DK   ] darken
 [VG   ] strong vignette
 
-[PAU  ] pause/resume visuals
+[PAU  ] pause/resume visuals + music output
 [MUT  ] mute/unmute audio
 [SHR  ] copy current settings as a share URL
+[UI   ] hide/show runtime controls
 ```
 
-## URL presets / share links
+## Scene / crop behavior
+
+Scene selection remains independent per-slot random selection with replacement. Immediate repeats are allowed; there is no recent-image ban or scene duplicate suppression.
 
 ```text
-fps=15|24|30|60
-speed=S1|S2|S3|S4|S5
-post=0|1
-fx=<ordered comma-separated FX tokens>
-mode=<preset-id | internal preset name | displayed MODE alias>
-crop=<min-max range, up to 9.0x>
-```
-
-FX order is significant. `SHR` serializes current mode, FPS, speed, POST master state, active FX order, and crop min/max range. Pause/mute state is intentionally not serialized.
-
-## Active mode order
-
-```text
-01 PHOTO_FEEDBACK_CROP
-02 PHOTO_RAPID_CROP
-03 PHOTO_SHARD_SWAP
-04 PHOTO_DOUBLE_BLEND
-05 PHOTO_BLEND_CYCLE
-06 PHOTO_FULL
+crop=10-90   -> 1.0x .. 9.0x
+crop=12-35   -> 1.2x .. 3.5x
 ```
 
 ## Important files
 
-- `config.js` — canonical defaults + mobile oversampling setting;
-- `js/url-preset.js` — URL override validation including 9x crop ranges;
+- `assets.js` — current soundtrack path;
+- `js/runtime-presentation-v108.js` — runtime version, telemetry opacity, startup delays;
+- `sketch-v066.js` — staged startup orchestration;
+- `js/runtime-utility-controls-v105.js` — PAU / MUT / UI controls;
 - `js/visual-engine-v1007.js` — mobile 2x ordinary composition/POST rendering;
 - `js/visual-engine-v1004.js` — 50% visual playback while touch is held;
-- `js/visual-engine-v1003.js` — independent scene image slots + bounded crop randomization;
-- `js/telemetry-filename-v105.js` — session-stable display filename aliases;
-- `js/audio-mute-v105.js` — dry + wet audio mute layer;
-- `js/runtime-utility-controls-v105.js` — PAU / MUT controls;
-- `js/mode-control-ui.js` — test controls + share button;
+- `js/visual-engine-v1003.js` — independent scene image slots + crop randomization;
+- `js/url-preset.js` — URL presets/share links;
 - `PROJECT_STATE.md` — implementation checkpoint.
