@@ -21,6 +21,7 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 #share-settings-button,
 #runtime-pause-button,
 #runtime-mute-button,
+#runtime-ui-button,
 .post-common-fx-button {
   position: fixed;
   z-index: 900;
@@ -50,9 +51,17 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 #post-fx-contrast-button { top: calc(282px + var(--safe-top)); }
 #post-fx-darken-button { top: calc(312px + var(--safe-top)); }
 #post-fx-vignette-button { top: calc(342px + var(--safe-top)); }
-#runtime-pause-button { bottom: calc(66px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
-#runtime-mute-button { bottom: calc(36px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
-#share-settings-button { bottom: calc(6px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
+#runtime-pause-button { bottom: calc(96px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
+#runtime-mute-button { bottom: calc(66px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
+#share-settings-button { bottom: calc(36px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
+#runtime-ui-button {
+  bottom: calc(6px + var(--safe-bottom));
+  font-size: 8px;
+  letter-spacing: -.04em;
+  color: rgba(var(--dodrei-ui), .22);
+  border-color: rgba(var(--dodrei-ui), .10);
+  background: rgba(0,0,0,.16);
+}
 
 .post-common-fx-button { font-size: 9px; line-height: 1; letter-spacing: -.03em; }
 
@@ -77,6 +86,13 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
   background: rgba(0,0,0,.52);
   outline: none;
 }
+#runtime-ui-button:hover,
+#runtime-ui-button:focus-visible {
+  color: rgba(var(--dodrei-ui), .40);
+  border-color: rgba(var(--dodrei-ui), .22);
+  background: rgba(0,0,0,.30);
+  outline: none;
+}
 
 #post-fx-master-button[aria-pressed="true"],
 #runtime-pause-button[aria-pressed="true"],
@@ -88,14 +104,26 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 }
 
 .post-common-fx-button:disabled { color: rgba(var(--dodrei-ui), .14); border-color: rgba(var(--dodrei-ui), .08); background: rgba(0,0,0,.16); cursor: default; opacity: .56; }
-#mode-next-button:active, #composition-fps-button:active, #cut-speed-button:active, #post-fx-master-button:active, #share-settings-button:active, #runtime-pause-button:active, #runtime-mute-button:active, .post-common-fx-button:not(:disabled):active { transform: translateY(1px); }
-#mode-next-button[hidden], #composition-fps-button[hidden], #cut-speed-button[hidden], #post-fx-master-button[hidden], #share-settings-button[hidden], #runtime-pause-button[hidden], #runtime-mute-button[hidden], .post-common-fx-button[hidden] { display: none; }
+#mode-next-button:active, #composition-fps-button:active, #cut-speed-button:active, #post-fx-master-button:active, #share-settings-button:active, #runtime-pause-button:active, #runtime-mute-button:active, #runtime-ui-button:active, .post-common-fx-button:not(:disabled):active { transform: translateY(1px); }
+#mode-next-button[hidden], #composition-fps-button[hidden], #cut-speed-button[hidden], #post-fx-master-button[hidden], #share-settings-button[hidden], #runtime-pause-button[hidden], #runtime-mute-button[hidden], #runtime-ui-button[hidden], .post-common-fx-button[hidden] { display: none; }
+
+body.dodrei-ui-hidden #mode-next-button,
+body.dodrei-ui-hidden #composition-fps-button,
+body.dodrei-ui-hidden #cut-speed-button,
+body.dodrei-ui-hidden #post-fx-master-button,
+body.dodrei-ui-hidden #share-settings-button,
+body.dodrei-ui-hidden #runtime-pause-button,
+body.dodrei-ui-hidden #runtime-mute-button,
+body.dodrei-ui-hidden .post-common-fx-button,
+body.dodrei-ui-hidden #share-toast {
+  display: none !important;
+}
 
 #share-toast {
   position: fixed;
   z-index: 920;
   right: calc(42px + var(--safe-right));
-  bottom: calc(10px + var(--safe-bottom));
+  bottom: calc(40px + var(--safe-bottom));
   padding: 3px 5px;
   border: 1px solid rgba(var(--dodrei-ui), .12);
   background: rgba(0,0,0,.54);
