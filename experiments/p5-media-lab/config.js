@@ -7,13 +7,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 11,
+    configRevision: 12,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.10.7",
+    version: "0.10.8",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -22,11 +22,11 @@ window.DODREI_CONFIG = {
   },
 
   timing: {
-    compositionFps: 30,
-    visualSpeedLevel: "S1",
-    visualSpeedMultiplier: 0.25,
+    compositionFps: 60,
+    visualSpeedLevel: "S5",
+    visualSpeedMultiplier: 1.50,
     visualStateIntervalMs: 45,
-    cutSpeedLevel: "S1",
+    cutSpeedLevel: "S5",
     cutIntervalMs: 240,
     timeReferenceFps: 60,
     maxDeltaMs: 100,
@@ -130,12 +130,14 @@ window.DODREI_CONFIG = {
     postCommonFx: {
       bw: false,
       grayscale: false,
-      crush: false,
+      lowSaturation: true,
+      crush: true,
       highContrast: true,
       darken: true,
       strongVignette: false,
-      order: ["highContrast", "darken"],
+      order: ["highContrast", "crush", "lowSaturation", "darken"],
       bwThreshold: 0.50,
+      lowSaturationAmount: 0.50,
       highContrastAmount: 3.20,
       highContrastSaturation: 1.08,
       darkenAlpha: 0.46,
