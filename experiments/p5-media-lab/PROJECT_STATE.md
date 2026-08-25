@@ -1,7 +1,7 @@
 # PROJECT_STATE — DODREI
 
-Last updated: 2026-08-26 02:12 KST  
-Current artwork/runtime version: `1.0.4`  
+Last updated: 2026-08-26  
+Current artwork/runtime version: `1.0.5`  
 Current visual engine version: `1.0.4`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
@@ -20,15 +20,86 @@ CROP_MAX        5.0x
 POST            ON
 POST_CHAIN      HC -> LS -> BL -> DK
 TOUCH_PLAYBACK  0.50x while held
+FULLSCREEN      OFF
 ```
 
-These defaults are exactly equivalent to:
+Canonical visual defaults are equivalent to:
 
 ```text
 ?fps=24&speed=S1&post=1&fx=HC,LS,BL,DK&mode=photo-double-blend&crop=10-50
 ```
 
-If URL parameters are absent, the canonical config values above are used. Valid URL parameters override only the fields they provide; invalid values are ignored.
+## v1.0.5 — start screen + utility controls + source-label obfuscation
+
+### Start screen
+
+Automatic fullscreen entry has been removed. `config.js` now sets:
+
+```text
+requestFullscreenOnStart = false
+```
+
+The start gesture no longer calls a fullscreen request.
+
+The first screen remains black but is now visually centered and neutral rather than terminal/cyber styled:
+
+```text
+alignment      centered
+ink            neutral gray
+font           Cormorant Garamond
+runtime font   IBM Plex Mono unchanged
+```
+
+`assets/fonts/webfonts.css` registers Cormorant Garamond from Google Fonts. It is used only by `#start-screen`; telemetry and runtime controls remain IBM Plex Mono.
+
+### Display filename obfuscation
+
+Implementation: `js/telemetry-filename-v105.js`.
+
+Only the telemetry `SOURCE` display label is altered. Media paths, loading, archive selection, cache keys, and actual filenames are untouched.
+
+Rules:
+
+```text
+letters in basename   -> random A-Z / a-z
+numbers               -> preserved
+symbols/punctuation   -> preserved
+file extension        -> preserved exactly
+alias lifetime        -> one alias per real filename per page session
+```
+
+The renderer keeps a small `Map<realName, alias>` on the telemetry instance. This is negligible next to decoded image memory and avoids recalculating/changing the alias every frame.
+
+### PAU / MUT controls
+
+Lower-right stack:
+
+```text
+[PAU]
+[MUT]
+[SHR]
+```
+
+Implementation: `js/runtime-utility-controls-v105.js`.
+
+`PAU`:
+
+- pauses/resumes the p5 visual loop via `noLoop()` / `loop()`;
+- audio transport is intentionally not paused;
+- UI remains interactive because the controls are DOM elements;
+- on resume, the virtual visual clock's last-wall-time marker is reset so the paused wall-clock gap does not become a visual-time jump;
+- viewport rebuild does not auto-resume while the explicit pause flag is active.
+
+`MUT`:
+
+Implementation helper: `js/audio-mute-v105.js`.
+
+- mutes native dry `<audio>` output;
+- forces parallel Web Audio direct/delay output gains to zero;
+- mute patch loads **after** `audio-touch-v060.js` so touch-FX gain updates cannot override mute;
+- unmute restores normal output on subsequent audio updates.
+
+Pause/mute state is local runtime state and is deliberately not serialized by `SHR`.
 
 ## v1.0.4 — touch playback timing
 
@@ -40,23 +111,13 @@ While pointer/touch is held:
 virtual visual timeline multiplier = 0.50
 ```
 
-This means image cuts and crop/layout evolution both run at half their normal visual speed during the hold. The slowdown is applied to the shared virtual visual clock rather than only to the cut interval.
+Image cuts and crop/layout evolution both run at half their normal visual speed. Outer render FPS, touch rupture, swipe feedback, POST bypass, and audio are not slowed.
 
-Not slowed by this change:
+The older cut-only `touchTransitionSlowdown` remains `0.0` to avoid stacking slowdowns.
 
-```text
-outer render FPS
-touch rupture rendering
-swipe feedback rendering
-POST touch-bypass logic
-audio FX / audio clock
-```
+## Scene image selection
 
-The older cut-only `touchTransitionSlowdown` remains in config for compatibility but is now set to `0.0`, preventing an additional slowdown from stacking on top of the new exact 50% visual playback multiplier.
-
-## v1.0.3 — independent scene selection
-
-Visible scene image selection remains **independent per-slot random selection with replacement**.
+Visible scene selection remains **independent per-slot random selection with replacement**.
 
 ```text
 recent-image ban        NONE
@@ -66,47 +127,23 @@ immediate repeat        ALLOWED
 long non-repeat run     ALLOWED
 ```
 
-The intent is not even distribution. Repeats remain legitimate random outcomes; only artificial correlation between simultaneous image layers was removed.
+Each logical slot independently chooses from the current resident pool when its cut advances, then holds that selected image while crop/layout can continue refreshing faster.
 
-Each logical slot keeps its selected image through one image cut while crop/layout continues to refresh on the faster visual-state clock.
-
-Examples of independent slots:
-
-```text
-PHOTO_RAPID_CROP     primary / secondary
-PHOTO_DOUBLE_BLEND   primary / secondary
-PHOTO_BLEND_CYCLE    slot 0 / 1 / 2
-PHOTO_FEEDBACK_CROP  primary / secondary
-PHOTO_SHARD_SWAP     base / individual band slots
-PHOTO_FULL           primary
-```
-
-The media manager remains separate: the archive-level shuffle-bag only determines which files are resident in the bounded working pool. It does not control visible scene order.
+The media manager remains separate: its archive-level shuffle-bag only decides which files are resident in the bounded pool (normally 20); it does not control visible scene order.
 
 ## Crop range semantics
 
-`sourceCropMinZoom` and `sourceCropMaxZoom` define an actual random zoom range. Current default:
+`sourceCropMinZoom` and `sourceCropMaxZoom` define a true random zoom range.
+
+Current default:
 
 ```text
 1.0x .. 5.0x
 ```
 
-At each visual-state refresh the engine samples a zoom inside the legal range. Mode-specific crop intensity biases the distribution within that range rather than multiplying past max and collapsing many samples onto the maximum clamp.
+Mode-specific crop intensity biases distribution inside the legal range rather than multiplying past max and collapsing samples onto the clamp boundary.
 
-## URL preset contract
-
-Implementation: `js/url-preset.js`.
-
-```text
-fps=15|24|30|60
-speed=S1|S2|S3|S4|S5
-post=0|1
-fx=<ordered comma-separated FX tokens>
-mode=<preset id | internal preset name | displayed telemetry alias>
-crop=<min-max>
-```
-
-Crop examples:
+URL examples:
 
 ```text
 crop=10-50  -> 1.0x .. 5.0x
@@ -114,9 +151,7 @@ crop=12-35  -> 1.2x .. 3.5x
 crop=15-25  -> 1.5x .. 2.5x
 ```
 
-`crop=12_35` is accepted as an input alias; share links emit the hyphen form. A legacy single value such as `crop=30` keeps the current minimum and sets max to `3.0x`.
-
-`SHR` serializes current mode, FPS, speed, POST master, ordered FX chain, and crop min/max range.
+`crop=12_35` remains accepted as an input alias. Share links emit the hyphen form.
 
 ## Existing POST / touch semantics
 
@@ -125,9 +160,8 @@ POST_EFFECTIVE = POST_MASTER_ENABLED && !TOUCH_RUPTURE_ACTIVE
 ```
 
 - POST OFF bypasses the entire ordered POST chain;
-- individual FX controls lock while manually bypassed;
 - FX state/order are preserved;
-- touch rupture temporarily bypasses POST without changing manual state;
+- touch rupture transiently bypasses POST without changing manual master state;
 - POST resumes after rupture only when manual master remains ON.
 
 Swipe feedback remains:
@@ -137,39 +171,15 @@ threshold 0.25
 strength  2.00
 ```
 
-## Typography / telemetry
-
-Runtime text uses IBM Plex Mono. Canvas telemetry is rendered through `js/telemetry-v102.js`.
-
-```text
-text RGB         214 / 214 / 210
-primary alpha    0.52
-secondary alpha  0.28
-faint alpha      0.14
-```
-
-Existing transient character corruption, small line jitter, and slow drift remain.
-
 ## Active mode order
 
 ```text
 01 PHOTO_FEEDBACK_CROP
 02 PHOTO_RAPID_CROP
 03 PHOTO_SHARD_SWAP
-04 PHOTO_DOUBLE_BLEND   <- current default start mode
+04 PHOTO_DOUBLE_BLEND   <- default start mode
 05 PHOTO_BLEND_CYCLE
 06 PHOTO_FULL
-```
-
-Displayed aliases:
-
-```text
-PHOTO_FEEDBACK_CROP  -> NULL//VEIL_7F
-PHOTO_RAPID_CROP     -> CUT.RASTER//19
-PHOTO_SHARD_SWAP     -> SHARD.BLEED//A3
-PHOTO_DOUBLE_BLEND   -> TWIN_EXPOSURE//NULL
-PHOTO_BLEND_CYCLE    -> MIX.CYCLE//BROKEN
-PHOTO_FULL           -> SOURCE//UNMARKED
 ```
 
 RGB tear and all LUMA/mosaic modes remain removed/deferred from the active sequence.
@@ -189,31 +199,34 @@ mobile rupture scale     0.50
 mobile rupture skip      every second rendered frame
 ```
 
-The v1.0.4 timing change adds only a multiplier to the existing virtual clock and should have negligible performance cost.
+v1.0.5 additions are lightweight: filename aliasing happens once per encountered source label, PAU stops the draw loop, and MUT only updates native mute state / existing gain nodes.
 
 ## Important files
 
-- `config.js` — v1.0.4 canonical defaults;
-- `js/url-preset.js` — validated share-link overrides including crop ranges;
-- `js/visual-engine-v1000.js` — POST master/blur/touch rupture behavior;
-- `js/visual-engine-v1003.js` — independent with-replacement scene selection + bounded crop randomization;
+- `config.js` — v1.0.5 canonical defaults;
+- `style.css` — control positions + centered start-screen presentation;
+- `assets/fonts/webfonts.css` — IBM Plex Mono + Cormorant Garamond registry;
+- `js/telemetry-v102.js` — active IBM Plex Mono/off-gray telemetry renderer;
+- `js/telemetry-filename-v105.js` — session-stable display filename aliases;
+- `js/audio-touch-v060.js` — touch audio behavior;
+- `js/audio-mute-v105.js` — runtime dry/wet mute patch;
+- `js/runtime-utility-controls-v105.js` — PAU / MUT controls;
+- `js/visual-engine-v1003.js` — independent with-replacement scene selection + crop randomization;
 - `js/visual-engine-v1004.js` — 50% visual playback while touch is held;
 - `js/media-manager.js` — rolling resident image pool / archive shuffle-bag;
-- `js/telemetry-v107.js` — pseudo-random text corruption;
-- `js/telemetry-v102.js` — IBM Plex Mono/off-gray canvas renderer;
-- `js/mode-control-ui.js` — test controls + share button;
+- `js/mode-control-ui.js` — test controls + SHR;
+- `sketch-v066.js` — app orchestration / pause hook / no fullscreen request;
 - `index.html` — current test/control page.
 
 ## Future deployment direction
 
-Current `index.html` remains the test/control page. A later public page should hide/remove controls while keeping the same runtime and `js/url-preset.js` contract.
+Current `index.html` remains the test/control page. A later public page may hide/remove test controls while keeping the same engine and URL preset contract.
 
-## Checkpoint — v1.0.4
+## Checkpoint — v1.0.5
 
-1. Default visual speed changed from `S2 / 0.50x` to `S1 / 0.25x`.
-2. Default start mode changed to `PHOTO_DOUBLE_BLEND`.
-3. Default crop range changed to `1.0x .. 5.0x` (`crop=10-50`).
-4. Default POST state remains `HC -> LS -> BL -> DK`, master ON.
-5. Added exact `0.50x` virtual visual playback while touch/pointer is held.
-6. Removed stacked cut-only slowdown by setting `touchTransitionSlowdown` to `0.0`.
-7. v1.0.3 independent with-replacement scene-selection behavior remains unchanged.
+1. Removed automatic fullscreen entry.
+2. Centered/restyled the start screen with neutral gray Cormorant Garamond typography.
+3. Added session-stable display-only source filename obfuscation while preserving extensions, digits, and punctuation.
+4. Added `PAU` visual pause/resume control above `MUT` and `SHR`.
+5. Added `MUT` control that silences both dry and wet audio output.
+6. Preserved all v1.0.4 visual defaults and touch-playback timing.
