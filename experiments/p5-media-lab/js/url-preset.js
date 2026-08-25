@@ -1,9 +1,8 @@
 /**
  * DODREI — URL PRESET / SHARE LINK
  * =============================================================================
- * Reads a small, validated set of runtime controls from location.search before
- * the visual engine is created. Invalid values are ignored so config defaults
- * remain authoritative.
+ * Reads validated runtime controls from location.search before engine creation.
+ * Invalid values are ignored so config defaults remain authoritative.
  *
  * Supported query parameters:
  *   fps=15|24|30|60
@@ -11,7 +10,8 @@
  *   post=0|1
  *   fx=HC,LS,BL,DK   (ordered; NONE is also valid)
  *   mode=<preset id | internal name | displayed telemetry alias>
- *   crop=25|30       (2.5x / 3.0x shorthand; 1.0..5.0 direct values also valid)
+ *   crop=12-35       (1.2x..3.5x explicit range)
+ *   crop=30          (legacy shorthand: keep min, set max to 3.0x)
  */
 (() => {
   const config = window.DODREI_CONFIG || window.P5LAB_CONFIG;
@@ -39,8 +39,6 @@
   const FX_KEYS = Object.values(FX_BY_TOKEN);
   const PARAM_KEYS = ["fps", "speed", "post", "fx", "mode", "crop"];
 
-  // Mirrors telemetry.aliasMode() so a viewer can paste the MODE label exactly
-  // as it appears on screen. Share links still emit the stable preset id.
   const MODE_ALIAS_BY_NAME = {
     PHOTO_FEEDBACK_CROP: "NULL//VEIL_7F",
     PHOTO_RAPID_CROP: "CUT.RASTER//19",
@@ -58,20 +56,46 @@
   };
 
   const normalizeMode = (value) => String(value || "").trim().toUpperCase();
-  const parseCrop = (raw) => {
+
+  const parseZoomToken = (raw) => {
     const n = Number(String(raw ?? "").trim());
     if (!Number.isFinite(n)) return null;
-    // Compact human-friendly notation: 25 -> 2.5x, 30 -> 3.0x.
     if (n >= 10 && n <= 50) return n / 10;
     if (n >= 1 && n <= 5) return n;
     return null;
   };
-  const formatCrop = (value) => {
+
+  const parseCrop = (raw) => {
+    const text = String(raw ?? "").trim();
+    if (!text) return null;
+
+    const parts = text.split(/[-_]/).map((part) => part.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const min = parseZoomToken(parts[0]);
+      const max = parseZoomToken(parts[1]);
+      if (min !== null && max !== null && min <= max) return { min, max, explicitRange: true };
+      return null;
+    }
+
+    if (parts.length !== 1) return null;
+    const max = parseZoomToken(parts[0]);
+    const currentMin = Math.max(1, Number(visual.sourceCropMinZoom) || 1);
+    if (max !== null && max >= currentMin) return { min: currentMin, max, explicitRange: false };
+    return null;
+  };
+
+  const formatZoomToken = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n) || n < 1 || n > 5) return null;
-    const compact = n * 10;
-    if (Math.abs(compact - Math.round(compact)) < 0.0001) return String(Math.round(compact));
+    const tenths = n * 10;
+    if (Math.abs(tenths - Math.round(tenths)) < 0.0001) return String(Math.round(tenths));
     return String(Number(n.toFixed(2)));
+  };
+
+  const formatCrop = (minValue, maxValue) => {
+    const min = formatZoomToken(minValue);
+    const max = formatZoomToken(maxValue);
+    return min && max ? `${min}-${max}` : null;
   };
 
   const params = new URLSearchParams(window.location.search);
@@ -141,9 +165,10 @@
 
   if (params.has("crop")) {
     const crop = parseCrop(params.get("crop"));
-    if (crop !== null) {
-      visual.sourceCropMaxZoom = crop;
-      applied.crop = crop;
+    if (crop) {
+      visual.sourceCropMinZoom = crop.min;
+      visual.sourceCropMaxZoom = crop.max;
+      applied.crop = { min: crop.min, max: crop.max };
     }
   }
 
@@ -202,7 +227,7 @@
     const mode = currentModeId();
     if (mode) url.searchParams.set("mode", mode);
 
-    const crop = formatCrop(visual.sourceCropMaxZoom);
+    const crop = formatCrop(visual.sourceCropMinZoom, visual.sourceCropMaxZoom);
     if (crop) url.searchParams.set("crop", crop);
 
     return url.toString();
@@ -218,7 +243,7 @@
       fps: FPS_VALUES.slice(),
       speed: Object.keys(SPEED_VALUES),
       fx: Object.keys(FX_BY_TOKEN),
-      crop: "10..50 => 1.0x..5.0x, or direct 1.0..5.0",
+      crop: "12-35 => 1.2x..3.5x; 30 keeps current min and sets max 3.0x; underscore also accepted",
       mode: "preset id, internal preset name, or displayed telemetry alias",
     },
   };
