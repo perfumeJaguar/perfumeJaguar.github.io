@@ -2,49 +2,69 @@
 
 DODREI is a mobile-first browser media-art experiment built with p5.js / JavaScript and hosted on GitHub Pages.
 
-Current artwork/runtime: **v1.0.3**  
-Current visual engine: **v1.0.3**  
+Current artwork/runtime: **v1.0.4**  
+Current visual engine: **v1.0.4**  
 Config schema: **1**
 
 ## Current defaults
 
 ```text
 BASE FPS     24
-VIS SPEED    S2 / 0.50x
-CROP RANGE   1.0x .. 3.0x
+VIS SPEED    S1 / 0.25x
+CROP RANGE   1.0x .. 5.0x
+START MODE   PHOTO_DOUBLE_BLEND
 POST MASTER  ON
 POST CHAIN   HC -> LS -> BL -> DK
+TOUCH SPEED  0.50x visual playback while held
 ```
 
-`BW / GS / CR / VG` start OFF. BL remains a subtle `1.20px` blur.
+These defaults match:
+
+```text
+?fps=24&speed=S1&post=1&fx=HC,LS,BL,DK&mode=photo-double-blend&crop=10-50
+```
+
+When those URL parameters are absent, the config above is used. URL parameters still override only the values they explicitly provide.
+
+## Touch playback behavior
+
+v1.0.4 adds a dedicated `touchPlaybackSpeedMultiplier: 0.50`.
+
+While pointer/touch is held, the **virtual visual timeline** advances at half speed. Therefore image cuts and crop/layout evolution slow together. Touch rupture, swipe feedback, POST bypass behavior, audio FX, and the outer render FPS are not slowed by this setting.
+
+The older cut-only `touchTransitionSlowdown` is now `0.0` so the touch slowdown is a clean 50% playback multiplier rather than stacking two slowdown systems.
 
 ## Scene image selection
 
-v1.0.3 changes visible scene selection from correlated arithmetic seed sequences to **independent per-slot random selection with replacement**.
+Scene selection remains **independent per-slot random selection with replacement**:
 
-Important semantics:
-
-- a mode may still hold one selected image across several crop/layout states;
-- each image layer/slot chooses independently when the image cut advances;
 - immediate repeats are allowed;
-- long runs without repeats are also allowed;
-- there is deliberately **no recent-image ban, no scene shuffle-bag, and no duplicate suppression**;
-- the goal is to remove machine-like cross-layer repetition patterns without artificially correcting randomness.
+- long non-repeating runs are allowed;
+- no recent-image ban;
+- no scene shuffle-bag;
+- no duplicate suppression.
 
-The archive/working-set manager is unchanged: it still keeps a bounded resident pool (normally 20 images) and uses its own shuffle-bag only to rotate which archive files are resident. Scene selection happens independently inside that resident pool.
+A selected image is held for its image cut while crop/layout can refresh faster inside that cut.
 
 ## Crop behavior
 
-Crop zoom is a true range, not a fixed zoom target. Each visual-state refresh samples a new zoom inside `sourceCropMinZoom .. sourceCropMaxZoom`, while the selected image itself can remain held until the next image cut.
+Crop zoom is sampled inside the configured range rather than treated as a fixed zoom. Current default is `1.0x .. 5.0x`.
 
-Mode-specific crop intensity now biases the distribution instead of multiplying zoom past the maximum and then clamping it. This avoids many states collapsing to exactly the same maximum zoom.
+Preferred URL notation:
+
+```text
+crop=10-50   -> 1.0x .. 5.0x
+crop=12-35   -> 1.2x .. 3.5x
+```
+
+`crop=12_35` is accepted as input; share links emit the hyphen form. A legacy single value such as `crop=30` keeps the current minimum and sets max to `3.0x`.
 
 ## Runtime controls
 
 ```text
 [ ›   ] next mode
 [24   ] base visual FPS
-[S2   ] visual speed
+[S1   ] visual speed
 [POST ] POST COMMON FX master bypass
 [BW   ] binary black/white
 [GS   ] grayscale
@@ -60,38 +80,20 @@ Mode-specific crop intensity now biases the distribution instead of multiplying 
 
 ## URL presets / share links
 
-`js/url-preset.js` reads validated query parameters before the visual engine is created. Missing or invalid values are ignored.
-
 ```text
 fps=15|24|30|60
 speed=S1|S2|S3|S4|S5
 post=0|1
-fx=HC,LS,BL,DK
+fx=<ordered comma-separated FX tokens>
 mode=<preset-id | internal preset name | displayed MODE alias>
 crop=<min-max range>
-```
-
-Preferred crop notation:
-
-```text
-crop=10-30   -> 1.0x .. 3.0x
-crop=12-35   -> 1.2x .. 3.5x
-crop=15-25   -> 1.5x .. 2.5x
-```
-
-`crop=12_35` is accepted as an input alias, but `SHR` emits the clearer hyphen form. Legacy single-value links remain valid: `crop=30` keeps the current minimum and sets the maximum to `3.0x`.
-
-Example:
-
-```text
-?fps=24&speed=S2&post=1&fx=HC,LS,BL,DK&mode=photo-feedback-crop&crop=10-30
 ```
 
 FX order is significant. `SHR` serializes current mode, FPS, speed, POST master state, active FX order, and crop min/max range.
 
 ## Typography / telemetry
 
-DODREI uses **IBM Plex Mono** for DOM controls and p5 canvas telemetry. Telemetry is neutral off-gray:
+DODREI uses **IBM Plex Mono** for DOM controls and p5 canvas telemetry. Telemetry remains neutral off-gray:
 
 ```text
 text color        RGB 214 / 214 / 210
@@ -99,8 +101,6 @@ primary alpha     0.52
 secondary alpha   0.28
 faint/event alpha 0.14
 ```
-
-Existing transient character corruption remains, with occasional small line displacement and very slow overall drift.
 
 ## Active mode order
 
@@ -113,16 +113,15 @@ Existing transient character corruption remains, with occasional small line disp
 06 PHOTO_FULL
 ```
 
-`PHOTO_FULL` remains the final clean source mode. RGB tear and LUMA/mosaic modes remain removed/deferred.
+Default start mode is now `PHOTO_DOUBLE_BLEND`.
 
 ## Important files
 
 - `config.js` — canonical defaults;
 - `js/url-preset.js` — URL override validation + share-link serializer;
-- `js/visual-engine-v1000.js` — v1 POST master/blur/touch behavior;
-- `js/visual-engine-v1003.js` — independent scene image slots + bounded crop range;
-- `js/telemetry-v107.js` — distributed text corruption;
-- `js/telemetry-v102.js` — IBM Plex Mono canvas telemetry renderer;
+- `js/visual-engine-v1003.js` — independent scene image slots + bounded crop randomization;
+- `js/visual-engine-v1004.js` — 50% visual playback while touch is held;
+- `js/visual-engine-v1000.js` — POST master/blur/touch rupture behavior;
 - `js/media-manager.js` — rolling resident working set;
 - `js/mode-control-ui.js` — test controls + share button;
 - `PROJECT_STATE.md` — implementation checkpoint.
