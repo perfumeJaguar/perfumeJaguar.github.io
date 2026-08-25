@@ -130,11 +130,11 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
   letter-spacing: .035em;
 }
 .start-title {
-  margin-bottom: 20px;
-  color: rgba(var(--dodrei-start-ink), .82);
-  font-size: clamp(28px, 8vw, 54px);
+  margin-bottom: 14px;
+  color: rgba(var(--dodrei-start-ink), .30);
+  font-size: clamp(18px, 4.8vw, 32px);
   font-weight: 400;
-  letter-spacing: .10em;
+  letter-spacing: .08em;
 }
 .start-action {
   margin-bottom: 10px;
