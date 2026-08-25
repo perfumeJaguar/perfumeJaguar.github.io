@@ -7,13 +7,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 7,
+    configRevision: 8,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.10.3",
+    version: "0.10.4",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -21,14 +21,17 @@ window.DODREI_CONFIG = {
     imageSwitchSec: 0.10,
   },
 
-  // Three independent clocks:
-  // - compositionFps: BASE VISUAL CLOCK, runtime button 15 -> 24 -> 30 -> 60.
-  // - cutIntervalMs: image-choice/cut tempo, runtime button S1 -> S2 -> S3 -> S4.
+  // Three independent temporal concepts:
+  // - compositionFps: BASE VISUAL sampling cadence, 15 -> 24 -> 30 -> 60.
+  // - visualSpeed*: virtual-time progression speed, S1 -> S2 -> S3 -> S4.
   // - outer p5 render / post FX: app.targetFps, currently 60 target.
   timing: {
     compositionFps: 30,
-    cutSpeedLevel: "S2",
-    cutIntervalMs: 240,
+    visualSpeedLevel: "S2",
+    visualSpeedMultiplier: 0.75,
+    visualStateIntervalMs: 45,
+    cutSpeedLevel: "S2", // legacy mirror for compatibility
+    cutIntervalMs: 240, // interval measured on virtual time
     timeReferenceFps: 60,
     maxDeltaMs: 100,
   },
@@ -105,7 +108,7 @@ window.DODREI_CONFIG = {
     mosaicColsDesktop: 32,
 
     // Legacy/shared FX tick retained for inherited glitch/rupture behavior.
-    // Visible image-choice tempo now uses timing.cutIntervalMs instead.
+    // Active base visual progression uses timing.visualSpeed* + virtual time.
     photoCutMs: 90,
     rgbTearMaxPx: 48,
     vignetteStrength: 0.34,
