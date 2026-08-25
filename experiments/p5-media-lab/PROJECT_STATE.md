@@ -1,8 +1,8 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-26  
-Current artwork/runtime version: `1.0.12`  
-Current visual engine version: `1.0.12`  
+Current artwork/runtime version: `1.0.15`  
+Current visual engine version: `1.0.15`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
 Path: `experiments/p5-media-lab/`
@@ -21,7 +21,7 @@ POST            ON
 POST_CHAIN      HC -> LS -> BL
 POST_FB         OFF
 TOUCH_PLAYBACK  0.50x while held
-FULLSCREEN      manual FS button
+FULLSCREEN      manual FS button inside runtime UI
 UI_DEFAULT      HIDDEN
 AUDIO           20220302 - sarabande.mp3
 ```
@@ -32,11 +32,54 @@ Canonical visual defaults:
 ?fps=24&speed=S2&post=1&fx=HC,LS,BL&mode=photo-double-blend&crop=10-90
 ```
 
-## v1.0.12 — global FB POST FX
+## v1.0.15 — conservative performance diet
 
-The temporary PHOTO_DOUBLE_BLEND-only feedback introduced in v1.0.11 is no longer loaded. `PHOTO_DOUBLE_BLEND` again has no special feedback behavior of its own.
+Main mobile composition quality is preserved at 2x CSS resolution. Touch rupture/swipe behavior is unchanged.
 
-A new ordered global POST effect is available:
+Optimizations:
+
+```text
+HC + GS + LS consecutive Canvas filters
+    -> batched into one full-resolution raster pass
+
+BL on mobile
+    -> processed on 0.65x POST scratch surface
+    -> upsampled back to full POST surface
+    -> configured blur radius compensated for scratch scale
+
+Global POST FB history
+    -> 0.60x of the already-low preset feedback buffer
+    -> no change to main 2x composition raster
+```
+
+Default chain `HC -> LS -> BL` therefore removes one full-resolution filter/copy pass compared with v1.0.14, while HC/LS remain full-resolution. BL is the only default POST effect intentionally moved to a reduced mobile scratch raster because its purpose is already softening.
+
+No live device benchmark has been run from ChatGPT; this is a source-level/static optimization pass. Visual inspection on the target phone remains the final check.
+
+## v1.0.14 — UI / touch-audio balance
+
+- FS moved above the UI button and now hides with the rest of the runtime controls.
+- UI toggle remains visible while controls are hidden and is intentionally almost invisible.
+- Touch audio modulation was reduced roughly 15–20% across wet/delay/distortion/feedback/resonance-related gains.
+
+## v1.0.13 — startup gap
+
+START gesture timeline:
+
+```text
+0.0s   soundtrack begins immediately
+2.0s   title/start screen disappears
+2.0-3.0s black screen + music only
+3.0s   telemetry stage 1
+3.2s   telemetry stage 2
+3.4s   telemetry stage 3
+6.4s   main visual at 20% brightness
+7.4s   main visual at 100% brightness
+```
+
+## Global FB POST FX
+
+The ordered global POST effect remains available:
 
 ```text
 button/token       FB
@@ -44,63 +87,22 @@ config key         feedback
 default            OFF
 share URL          fx=...,FB,... supported
 order              activation order, same contract as HC/LS/BL/etc.
-```
-
-Feedback strength is slightly above the discarded v1.0.11 double-blend experiment:
-
-```text
-history retain alpha   58   (was 46)
-feedback scale         0.996
-current history alpha  218
-```
-
-The feedback history uses dedicated low-resolution buffers derived from the existing feedback resolution rather than the 2x mobile main raster. This keeps temporal memory isolated from preset feedback and limits mobile cost. The output itself remains on the normal POST surface.
-
-## v1.0.11 — persistent fullscreen control
-
-Lower-right persistent controls:
-
-```text
-[UI]
-[FS]
-```
-
-Both remain visible and operable while `dodrei-ui-hidden` is active. `FS` toggles the browser Fullscreen API and tracks fullscreen state.
-
-## v1.0.10 — staged startup
-
-START gesture timeline:
-
-```text
-0.0s   soundtrack begins immediately
-3.0s   start screen releases; telemetry stage 1
-3.2s   telemetry stage 2
-3.4s   telemetry stage 3
-6.4s   main visual appears at 20% brightness
-7.4s   main visual switches to 100% brightness
-```
-
-Runtime UI remains hidden by default. Telemetry is not hidden with the controls.
-
-## v1.0.8 / v1.0.9 retained behavior
-
-```text
-soundtrack              assets/audio/20220302 - sarabande.mp3
-PAU                     pauses visuals + audible music output
-telemetry opacity       0.26 / 0.14 / 0.07
-UI button               hides/shows runtime controls only
+history retain     58
+feedback scale     0.996
+current history    218
+history raster     0.60x of preset-feedback buffer in v1.0.15
 ```
 
 ## Mobile sharpness
 
-Mobile ordinary composition and POST buffers render at `2.0x` CSS resolution. Example:
+Mobile ordinary composition and full-resolution POST surfaces remain at `2.0x` CSS resolution. Example:
 
 ```text
 CSS viewport       360 x 642
 main composition   ~720 x 1284
 ```
 
-Feedback, swipe, touch rupture, and analyzer buffers keep performance-oriented mobile sizes. Desktop behavior is unchanged.
+Feedback, swipe, touch rupture, analyzer, and now mobile BL scratch remain performance-oriented lower-resolution surfaces. Desktop main behavior remains unchanged; desktop BL scale remains 1.0.
 
 ## Scene image selection
 
@@ -127,13 +129,13 @@ crop=12-35  -> 1.2x .. 3.5x
 POST_EFFECTIVE = POST_MASTER_ENABLED && !TOUCH_RUPTURE_ACTIVE
 ```
 
-Current ordered POST keys include:
+Current ordered POST keys:
 
 ```text
 BW GS LS BL FB CR HC DK VG
 ```
 
-Startup default remains:
+Startup default:
 
 ```text
 HC -> LS -> BL
@@ -152,31 +154,34 @@ strength  2.00
 01 PHOTO_FEEDBACK_CROP
 02 PHOTO_RAPID_CROP
 03 PHOTO_SHARD_SWAP
-04 PHOTO_DOUBLE_BLEND   <- default start mode / telemetry alias TWIN_EXPOSURE//NULL
+04 PHOTO_DOUBLE_BLEND   <- default / TWIN_EXPOSURE//NULL
 05 PHOTO_BLEND_CYCLE
 06 PHOTO_FULL
 ```
 
 ## Important files
 
-- `config.js` — current defaults + FB parameters;
-- `assets.js` — current soundtrack;
+- `config.js` — current defaults + performance parameters;
+- `assets.js` — soundtrack;
 - `js/startup-sequence-v1010.js` — staged telemetry reveal;
-- `sketch-v066.js` — staged startup + brightness timeline;
+- `sketch-v066.js` — startup/brightness timeline;
+- `js/runtime-presentation-v108.js` — telemetry opacity only; version-neutral as of v1.0.15;
 - `js/runtime-utility-controls-v105.js` — PAU / MUT / UI / FS controls;
 - `js/post-feedback-ui-v1012.js` — FB control;
-- `js/visual-engine-v1012.js` — ordered global FB POST implementation;
-- `js/visual-engine-v1007.js` — mobile 2x ordinary composition/POST rendering;
+- `js/visual-engine-v1015.js` — active performance-diet layer;
+- `js/visual-engine-v1012.js` — ordered global FB implementation;
+- `js/visual-engine-v1007.js` — mobile 2x main composition/POST surfaces;
 - `js/visual-engine-v1004.js` — touch playback slowdown;
 - `js/visual-engine-v1003.js` — independent scene selection + crop randomization;
-- `js/url-preset.js` — URL preset/share contract including FB;
-- `index.html` — current test/control page.
+- `js/url-preset.js` — URL preset/share contract;
+- `index.html` — current page and cache key.
 
-## Checkpoint — v1.0.12
+## Checkpoint — v1.0.15
 
-1. Removed activation of the v1.0.11 PHOTO_DOUBLE_BLEND-only feedback engine.
-2. Added global ordered POST `FB`, default OFF.
-3. FB is slightly stronger than the discarded mode-specific experiment.
-4. `FB` is supported in share URLs and preserves activation order.
-5. Persistent `UI` and `FS` controls remain available while the rest of the UI is hidden.
-6. Existing staged startup, soundtrack, mobile sharpness, and touch behavior remain unchanged.
+1. Main 2x mobile image quality retained.
+2. Touch visual pipeline retained unchanged.
+3. Default HC+LS now share one full-resolution Canvas-filter pass.
+4. Mobile BL uses a 0.65x scratch surface; desktop BL remains full-resolution.
+5. Global FB history reduced to 0.60x of the existing low-resolution feedback surface.
+6. Default visible settings and URL contract are unchanged.
+7. Runtime presentation no longer overwrites the canonical app version.
