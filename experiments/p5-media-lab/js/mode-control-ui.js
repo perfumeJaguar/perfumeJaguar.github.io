@@ -1,12 +1,13 @@
-/** DODREI — tiny runtime controls: mode step + base FPS + visual speed. */
+/** DODREI — runtime controls: mode + base FPS + visual speed + POST COMMON FX. */
 window.addEventListener("DOMContentLoaded", () => {
   const modeButton = document.getElementById("mode-next-button");
   const fpsButton = document.getElementById("composition-fps-button");
-  // Keep the existing DOM id for compatibility; this is now VISUAL SPEED.
   const speedButton = document.getElementById("cut-speed-button");
   const config = window.DODREI_CONFIG || window.P5LAB_CONFIG || {};
   const modeControl = config.visual?.modeControl || {};
   const timing = config.timing || (config.timing = {});
+  const visual = config.visual || (config.visual = {});
+  const postFx = visual.postCommonFx || (visual.postCommonFx = {});
 
   const FPS_OPTIONS = [15, 24, 30, 60];
   const SPEED_OPTIONS = [
@@ -16,21 +17,25 @@ window.addEventListener("DOMContentLoaded", () => {
     { level: "S4", multiplier: 1.00 },
     { level: "S5", multiplier: 1.50 },
   ];
+  const POST_FX_OPTIONS = [
+    { id: "post-fx-bw-button", key: "bw", label: "BW", title: "Binary black / white" },
+    { id: "post-fx-crush-button", key: "crush", label: "CR", title: "Common Crush" },
+    { id: "post-fx-contrast-button", key: "highContrast", label: "HC", title: "High contrast color" },
+    { id: "post-fx-darken-button", key: "darken", label: "DK", title: "Darken overlay" },
+    { id: "post-fx-vignette-button", key: "strongVignette", label: "VG", title: "Strong vignette" },
+  ];
 
   const stopPointer = (event) => event.stopPropagation();
 
   if (modeButton) {
-    if (modeControl.manualButtonEnabled === false) {
-      modeButton.hidden = true;
-    } else {
+    if (modeControl.manualButtonEnabled === false) modeButton.hidden = true;
+    else {
       modeButton.addEventListener("pointerdown", stopPointer);
       modeButton.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         const engine = window.DODREI_VISUAL_ENGINE;
-        if (engine && typeof engine.manualAdvanceMode === "function") {
-          engine.manualAdvanceMode();
-        }
+        if (engine && typeof engine.manualAdvanceMode === "function") engine.manualAdvanceMode();
       });
     }
   }
@@ -39,7 +44,6 @@ window.addEventListener("DOMContentLoaded", () => {
     const n = Number(timing.compositionFps);
     return Number.isFinite(n) && n > 0 ? n : 30;
   };
-
   const updateFpsButton = () => {
     if (!fpsButton) return;
     const fps = currentFps();
@@ -47,7 +51,6 @@ window.addEventListener("DOMContentLoaded", () => {
     fpsButton.setAttribute("aria-label", `Base visual FPS ${fps}. Click to cycle.`);
     fpsButton.title = `Base visual FPS: ${fps}`;
   };
-
   const nextFps = (current) => {
     const exact = FPS_OPTIONS.indexOf(current);
     if (exact >= 0) return FPS_OPTIONS[(exact + 1) % FPS_OPTIONS.length];
@@ -61,15 +64,8 @@ window.addEventListener("DOMContentLoaded", () => {
       event.stopPropagation();
       const next = nextFps(currentFps());
       const engine = window.DODREI_VISUAL_ENGINE;
-
-      if (engine && typeof engine.setBaseVisualFps === "function") {
-        engine.setBaseVisualFps(next);
-      } else {
-        timing.compositionFps = next;
-        if (engine && engine.telemetry && typeof engine.telemetry.event === "function") {
-          engine.telemetry.event(`BASE VISUAL FPS ${next}`);
-        }
-      }
+      if (engine && typeof engine.setBaseVisualFps === "function") engine.setBaseVisualFps(next);
+      else timing.compositionFps = next;
       updateFpsButton();
     });
     updateFpsButton();
@@ -79,7 +75,6 @@ window.addEventListener("DOMContentLoaded", () => {
     const level = String(timing.visualSpeedLevel || timing.cutSpeedLevel || "").toUpperCase();
     const exact = SPEED_OPTIONS.find((option) => option.level === level);
     if (exact) return exact;
-
     const multiplier = Number(timing.visualSpeedMultiplier);
     if (Number.isFinite(multiplier) && multiplier > 0) {
       return SPEED_OPTIONS.reduce((best, option) =>
@@ -88,18 +83,13 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     return SPEED_OPTIONS[0];
   };
-
   const updateSpeedButton = () => {
     if (!speedButton) return;
     const option = currentSpeed();
     speedButton.textContent = option.level;
-    speedButton.setAttribute(
-      "aria-label",
-      `Visual speed ${option.level}, ${option.multiplier.toFixed(2)} times. Click to cycle.`
-    );
+    speedButton.setAttribute("aria-label", `Visual speed ${option.level}, ${option.multiplier.toFixed(2)} times. Click to cycle.`);
     speedButton.title = `Visual speed ${option.level}: ${option.multiplier.toFixed(2)}x`;
   };
-
   const nextSpeed = (current) => {
     const index = SPEED_OPTIONS.findIndex((option) => option.level === current.level);
     return SPEED_OPTIONS[(index >= 0 ? index + 1 : 0) % SPEED_OPTIONS.length];
@@ -110,22 +100,40 @@ window.addEventListener("DOMContentLoaded", () => {
     speedButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-
       const next = nextSpeed(currentSpeed());
       const engine = window.DODREI_VISUAL_ENGINE;
-
-      if (engine && typeof engine.setVisualSpeed === "function") {
-        engine.setVisualSpeed(next.level, next.multiplier);
-      } else {
+      if (engine && typeof engine.setVisualSpeed === "function") engine.setVisualSpeed(next.level, next.multiplier);
+      else {
         timing.visualSpeedLevel = next.level;
         timing.visualSpeedMultiplier = next.multiplier;
         timing.cutSpeedLevel = next.level;
-        if (engine && engine.telemetry && typeof engine.telemetry.event === "function") {
-          engine.telemetry.event(`VISUAL SPEED ${next.level} ${next.multiplier.toFixed(2)}X`);
-        }
       }
       updateSpeedButton();
     });
     updateSpeedButton();
+  }
+
+  const updatePostFxButton = (button, option) => {
+    const enabled = !!postFx[option.key];
+    button.textContent = option.label;
+    button.setAttribute("aria-pressed", enabled ? "true" : "false");
+    button.setAttribute("aria-label", `Post common FX ${option.title}: ${enabled ? "on" : "off"}. Click to toggle.`);
+    button.title = `${option.title}: ${enabled ? "ON" : "OFF"}`;
+  };
+
+  for (const option of POST_FX_OPTIONS) {
+    const button = document.getElementById(option.id);
+    if (!button) continue;
+    button.addEventListener("pointerdown", stopPointer);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const next = !postFx[option.key];
+      const engine = window.DODREI_VISUAL_ENGINE;
+      if (engine && typeof engine.setPostCommonFx === "function") engine.setPostCommonFx(option.key, next);
+      else postFx[option.key] = next;
+      updatePostFxButton(button, option);
+    });
+    updatePostFxButton(button, option);
   }
 });
