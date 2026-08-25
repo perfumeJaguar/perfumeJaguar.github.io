@@ -1,7 +1,7 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-26  
-Current artwork/runtime version: `1.0.7`  
+Current artwork/runtime version: `1.0.9`  
 Current visual engine version: `1.0.7`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
@@ -21,107 +21,57 @@ POST            ON
 POST_CHAIN      HC -> LS -> BL
 TOUCH_PLAYBACK  0.50x while held
 FULLSCREEN      OFF
+UI_DEFAULT      HIDDEN
+AUDIO           20220302 - sarabande.mp3
 ```
 
-Canonical visual defaults are equivalent to:
+Canonical visual defaults:
 
 ```text
 ?fps=24&speed=S2&post=1&fx=HC,LS,BL&mode=photo-double-blend&crop=10-90
 ```
 
-If URL parameters are absent, the canonical config values above are used. Valid URL parameters override only the fields they provide; invalid values are ignored.
+## v1.0.9 — staged startup + hidden UI default
+
+START gesture timeline:
+
+```text
+0 ms     audioEngine.start() and mediaManager.start()
+1000 ms  telemetry/information rendering begins
+4000 ms  visualEngine.render() begins
+```
+
+Before the visual delay elapses the canvas stays black. Media/audio analysis may initialize in the background, but no composition is drawn before 4 seconds.
+
+The document body now starts with `dodrei-ui-hidden`, so all right-side controls are hidden by default except the deliberately faint `UI` toggle. Telemetry is not part of this hide group.
+
+Implementation:
+
+- `js/runtime-presentation-v108.js` sets `interfaceDelayMs: 1000`, `visualDelayMs: 4000`, runtime version `1.0.9`;
+- `sketch-v066.js` tracks `appStartedMs` and gates telemetry/visual rendering by elapsed time;
+- `index.html` starts with `class="dodrei-ui-hidden"` and cache key `20260826-71`.
+
+## v1.0.8 — soundtrack / pause / telemetry / UI toggle
+
+```text
+soundtrack              assets/audio/20220302 - sarabande.mp3
+PAU                     pauses visuals + audible music output
+telemetry opacity       0.26 / 0.14 / 0.07
+UI button               hides/shows runtime controls only
+```
+
+The faint `UI` button remains visible while controls are hidden.
 
 ## v1.0.7 — mobile main-render oversampling
 
-Implementation: `js/visual-engine-v1007.js`, subclassing `DodreiVisualEngineV1004`.
-
-The mobile browser viewport is expressed in CSS pixels. On a typical phone a telemetry viewport such as `360 x 642` can represent a physically much denser panel. Prior builds created the ordinary composition buffer from those CSS dimensions, so the image could look soft when stretched across the physical display.
-
-v1.0.7 keeps the visible canvas/UI dimensions unchanged but renders the ordinary mobile composition at `2.0x` internally:
+Mobile ordinary composition and POST buffers render at `2.0x` CSS resolution. Example:
 
 ```text
-mobileMainOversample = 2.0
-example viewport      360 x 642
-main composition      720 x 1284
+CSS viewport       360 x 642
+main composition   ~720 x 1284
 ```
 
-The oversampling applies only to:
-
-```text
-main composition buffer
-common crush buffer
-POST common buffer
-POST common scratch
-```
-
-The expensive performance-sensitive buffers deliberately keep their inherited mobile sizes:
-
-```text
-feedback / swipe feedback   unchanged
-touch rupture               unchanged (0.50 scale, every second frame)
-analyzer                     unchanged (128px width)
-```
-
-This is intended to improve ordinary image sharpness without multiplying the heaviest touch/feedback costs by four. Desktop behavior is unchanged.
-
-The mobile main long-edge cap scales with the oversample factor (`720 * 2 = 1440`), so very large CSS viewports remain bounded.
-
-## v1.0.6 — default preset + 9x crop + quieter title
-
-Current default runtime preset:
-
-```text
-composition FPS    24
-visual speed       S2 / 0.50x
-start mode         PHOTO_DOUBLE_BLEND
-crop range         1.0x .. 9.0x
-POST master        ON
-POST chain         HC -> LS -> BL
-DK                  OFF
-```
-
-`crop` accepts zoom values through `9.0x`, for example:
-
-```text
-crop=10-90  -> 1.0x .. 9.0x
-crop=12-35  -> 1.2x .. 3.5x
-```
-
-The centered Cormorant Garamond start-screen `DODREI` label remains subdued (`18–32px`, alpha `0.30`).
-
-## v1.0.5 — start screen + utility controls + source-label obfuscation
-
-Automatic fullscreen entry remains removed. Start screen is centered, neutral gray, Cormorant Garamond; runtime telemetry/controls remain IBM Plex Mono.
-
-Telemetry source filename display rules:
-
-```text
-letters in basename   -> random A-Z / a-z
-numbers               -> preserved
-symbols/punctuation   -> preserved
-file extension        -> preserved exactly
-alias lifetime        -> one alias per real filename per page session
-```
-
-Lower-right controls:
-
-```text
-[PAU] visual pause/resume
-[MUT] dry + wet audio mute/unmute
-[SHR] copy share URL
-```
-
-Pause/mute state is local runtime state and is not serialized by `SHR`.
-
-## Touch playback
-
-While pointer/touch is held:
-
-```text
-virtual visual timeline multiplier = 0.50
-```
-
-Image cuts and crop/layout evolution slow together. Outer render FPS, touch rupture, swipe feedback, POST bypass, and audio are not slowed.
+Feedback, swipe, touch rupture, and analyzer buffers keep their performance-oriented mobile sizes. Desktop behavior is unchanged.
 
 ## Scene image selection
 
@@ -135,7 +85,12 @@ immediate repeat        ALLOWED
 long non-repeat run     ALLOWED
 ```
 
-The media-manager archive shuffle-bag only determines which images are resident in the bounded pool; it does not control visible scene order.
+## Crop range semantics
+
+```text
+crop=10-90  -> 1.0x .. 9.0x
+crop=12-35  -> 1.2x .. 3.5x
+```
 
 ## Existing POST / touch semantics
 
@@ -143,7 +98,7 @@ The media-manager archive shuffle-bag only determines which images are resident 
 POST_EFFECTIVE = POST_MASTER_ENABLED && !TOUCH_RUPTURE_ACTIVE
 ```
 
-Swipe feedback remains:
+Swipe feedback:
 
 ```text
 threshold 0.25
@@ -161,16 +116,13 @@ strength  2.00
 06 PHOTO_FULL
 ```
 
-RGB tear and all LUMA/mosaic modes remain removed/deferred from the active sequence.
-
 ## Performance baseline
 
 ```text
 outer target fps             60
 startup base fps             24
 startup visual speed         S2 / 0.50x
-touch visual speed           0.50x of current visual speed
-mobile CSS viewport          device/browser dependent
+touch visual speed           0.50x
 mobile main oversample       2.0x
 mobile main max long edge    1440 effective cap
 desktop main max long edge   1280
@@ -183,24 +135,21 @@ mobile analyzer width        128
 
 ## Important files
 
-- `config.js` — v1.0.7 canonical defaults + mobileMainOversample;
-- `js/url-preset.js` — validated share-link overrides through 9x crop;
-- `js/visual-engine-v1007.js` — 2x mobile ordinary composition/POST rendering;
-- `js/visual-engine-v1004.js` — 50% visual playback while touch is held;
-- `js/visual-engine-v1003.js` — independent with-replacement scene selection + crop randomization;
-- `js/visual-engine-v1000.js` — POST master/blur/touch rupture behavior;
-- `js/telemetry-v102.js` — active IBM Plex Mono/off-gray telemetry renderer;
-- `js/telemetry-filename-v105.js` — session-stable display filename aliases;
-- `js/audio-mute-v105.js` — runtime dry/wet mute patch;
-- `js/runtime-utility-controls-v105.js` — PAU / MUT controls;
-- `js/media-manager.js` — rolling resident image pool / archive shuffle-bag;
+- `assets.js` — current soundtrack;
+- `js/runtime-presentation-v108.js` — v1.0.9 presentation/startup timing overrides;
+- `sketch-v066.js` — application orchestration + staged startup;
+- `js/runtime-utility-controls-v105.js` — PAU / MUT / UI controls;
+- `js/audio-mute-v105.js` — mute/pause-safe dry/wet audio handling;
+- `js/visual-engine-v1007.js` — mobile 2x ordinary composition/POST rendering;
+- `js/visual-engine-v1004.js` — touch playback slowdown;
+- `js/visual-engine-v1003.js` — independent scene selection + crop randomization;
+- `js/url-preset.js` — URL preset/share contract;
 - `index.html` — current test/control page.
 
-## Checkpoint — v1.0.7
+## Checkpoint — v1.0.9
 
-1. Added `mobileMainOversample: 2.0`.
-2. Added `visual-engine-v1007.js` and made it the active engine.
-3. Mobile ordinary composition, crush, and POST buffers now render at approximately 2x CSS resolution.
-4. Feedback, swipe, rupture, and analyzer mobile resolutions remain unchanged to contain cost.
-5. Desktop rendering remains unchanged.
-6. All v1.0.6 defaults and v1.0.5 utility/presentation behavior remain unchanged.
+1. Runtime UI starts hidden; faint `UI` button remains available.
+2. START begins music immediately.
+3. Telemetry/information appears after 1 second.
+4. Visual composition begins after 4 seconds.
+5. Existing v1.0.8 soundtrack/pause/UI behavior and v1.0.7 mobile sharpness behavior remain intact.
