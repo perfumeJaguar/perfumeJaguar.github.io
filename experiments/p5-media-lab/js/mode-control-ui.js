@@ -3,6 +3,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const modeButton = document.getElementById("mode-next-button");
   const fpsButton = document.getElementById("composition-fps-button");
   const speedButton = document.getElementById("cut-speed-button");
+  const postMasterButton = document.getElementById("post-fx-master-button");
   const config = window.DODREI_CONFIG || window.P5LAB_CONFIG || {};
   const modeControl = config.visual?.modeControl || {};
   const timing = config.timing || (config.timing = {});
@@ -21,6 +22,7 @@ window.addEventListener("DOMContentLoaded", () => {
     { id: "post-fx-bw-button", key: "bw", label: "BW", title: "Binary black / white" },
     { id: "post-fx-gray-button", key: "grayscale", label: "GS", title: "Grayscale" },
     { id: "post-fx-low-sat-button", key: "lowSaturation", label: "LS", title: "Low saturation" },
+    { id: "post-fx-blur-button", key: "blur", label: "BL", title: "Soft blur" },
     { id: "post-fx-crush-button", key: "crush", label: "CR", title: "Common Crush" },
     { id: "post-fx-contrast-button", key: "highContrast", label: "HC", title: "High contrast color" },
     { id: "post-fx-darken-button", key: "darken", label: "DK", title: "Darken overlay" },
@@ -115,6 +117,17 @@ window.addEventListener("DOMContentLoaded", () => {
     updateSpeedButton();
   }
 
+  const postMasterEnabled = () => postFx.masterEnabled !== false;
+
+  const updatePostMasterButton = () => {
+    if (!postMasterButton) return;
+    const enabled = postMasterEnabled();
+    postMasterButton.textContent = "POST";
+    postMasterButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+    postMasterButton.setAttribute("aria-label", `Post common FX master: ${enabled ? "on" : "bypassed"}. Click to toggle.`);
+    postMasterButton.title = `POST COMMON FX: ${enabled ? "ON" : "BYPASS"}`;
+  };
+
   const updatePostFxButton = (button, option) => {
     const enabled = !!postFx[option.key];
     button.textContent = option.label;
@@ -123,6 +136,30 @@ window.addEventListener("DOMContentLoaded", () => {
     button.title = `${option.title}: ${enabled ? "ON" : "OFF"}`;
   };
 
+  const updatePostFxLock = () => {
+    const locked = !postMasterEnabled();
+    for (const option of POST_FX_OPTIONS) {
+      const button = document.getElementById(option.id);
+      if (!button) continue;
+      button.disabled = locked;
+      button.setAttribute("aria-disabled", locked ? "true" : "false");
+    }
+  };
+
+  if (postMasterButton) {
+    postMasterButton.addEventListener("pointerdown", stopPointer);
+    postMasterButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const next = !postMasterEnabled();
+      const engine = window.DODREI_VISUAL_ENGINE;
+      if (engine && typeof engine.setPostMasterEnabled === "function") engine.setPostMasterEnabled(next);
+      else postFx.masterEnabled = next;
+      updatePostMasterButton();
+      updatePostFxLock();
+    });
+  }
+
   for (const option of POST_FX_OPTIONS) {
     const button = document.getElementById(option.id);
     if (!button) continue;
@@ -130,6 +167,7 @@ window.addEventListener("DOMContentLoaded", () => {
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (!postMasterEnabled()) return;
       const next = !postFx[option.key];
       const engine = window.DODREI_VISUAL_ENGINE;
       if (engine && typeof engine.setPostCommonFx === "function") engine.setPostCommonFx(option.key, next);
@@ -138,4 +176,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
     updatePostFxButton(button, option);
   }
+
+  updatePostMasterButton();
+  updatePostFxLock();
 });
