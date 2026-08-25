@@ -2,7 +2,7 @@
 
 DODREI is a mobile-first browser media-art experiment built with **p5.js / JavaScript** and hosted on GitHub Pages.
 
-Current baseline: **v0.9.0**.  
+Current baseline: **v0.9.1**.  
 Current config schema: **1**.
 
 The project began as `p5 Media Lab 01`; the repository path remains `experiments/p5-media-lab/` for continuity.
@@ -17,6 +17,32 @@ Interaction:
 - hold: four-band rupture + stronger audio processing;
 - fast swipe while holding: additional recursive feedback above the configured threshold;
 - upper-left `›` button: advance to the next enabled visual mode.
+
+## v0.9.1 changes
+
+### Common PHOTO_CRUSH disabled by default
+
+The shared `common-crush` stage is now disabled in the default visual pipeline:
+
+```js
+{ id: "common-crush", enabled: false, locked: true }
+```
+
+The PHOTO_CRUSH implementation and its parameters remain in the engine/config for later reuse. This change removes the blanket crush/posterize/intruder pass from every visual preset without deleting the feature.
+
+The current default pipeline is therefore:
+
+```text
+preset composition
+  -> [common crush OFF]
+  -> touch rupture
+  -> preset feedback
+  -> swipe feedback
+  -> vignette
+  -> waveform
+```
+
+This is a config-level visual revision only. The active visual engine implementation remains `ENGINE 0.9.0`; the artwork/runtime version is `0.9.1`.
 
 ## v0.9.0 changes
 
@@ -87,7 +113,7 @@ DODREI CONTROL
 
 ## Visual pipeline
 
-The current fixed-order pipeline remains:
+The pipeline representation remains fixed-order:
 
 ```text
 preset composition
@@ -99,7 +125,7 @@ preset composition
   -> waveform
 ```
 
-Stages can be enabled/disabled from config but are not reorderable yet because current buffers have dependencies.
+Stages can be enabled/disabled from config but are not reorderable yet because current buffers have dependencies. In v0.9.1, `common-crush` is represented but disabled by default.
 
 ## Image archive / memory
 
@@ -130,6 +156,8 @@ Image-pool rotation is independent from visual-mode changes.
 - `PROJECT_STATE.md` — current implementation state.
 
 ## Limitations / opposing considerations
+
+Disabling the common crush stage changes every preset's baseline look at once. Some modes may become cleaner or less dense than before; if individual modes later need extra contrast/destruction, prefer tuning those modes or adding selective behavior rather than immediately restoring a blanket pass.
 
 The GPU palette removes the large JavaScript per-pixel remap from the normal touch path, but it still has GPU upload/filter cost and may not outperform the CPU path on every browser/device. The fallback exists for compatibility, and real-device FPS/heat should decide whether the change is actually beneficial.
 

@@ -18,13 +18,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 2,
+    configRevision: 3,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.9.0",
+    version: "0.9.1",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -116,6 +116,8 @@ window.DODREI_CONFIG = {
     rgbTearMaxPx: 48,
     vignetteStrength: 0.34,
 
+    // PHOTO_CRUSH parameters are retained for later use, but the common stage
+    // is disabled by default in v0.9.1.
     crushContrast: 1.32,
     crushPosterizeLevels: 6,
     crushIntruderAlpha: 28,
@@ -172,7 +174,7 @@ window.DODREI_CONFIG = {
 
     pipeline: [
       { id: "preset-composition", enabled: true, locked: true },
-      { id: "common-crush", enabled: true, locked: true },
+      { id: "common-crush", enabled: false, locked: true },
       { id: "touch-rupture", enabled: true, locked: true },
       { id: "preset-feedback", enabled: true, locked: true },
       { id: "swipe-feedback", enabled: true, locked: true },
