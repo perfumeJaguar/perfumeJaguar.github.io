@@ -46,13 +46,13 @@ canvas {
   height: 100% !important;
 }
 
-/* Small visible controls, separate from the canvas gesture surface. */
+/* Small visible controls, separated from the telemetry-heavy left edge. */
 #mode-next-button,
 #composition-fps-button,
 #cut-speed-button {
   position: fixed;
   z-index: 900;
-  left: calc(6px + var(--safe-left));
+  right: calc(6px + var(--safe-right));
   width: 30px;
   height: 24px;
   padding: 0;

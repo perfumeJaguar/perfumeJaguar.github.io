@@ -2,7 +2,7 @@
 
 DODREI is a mobile-first browser media-art experiment built with **p5.js / JavaScript** and hosted on GitHub Pages.
 
-Current baseline: **v0.10.4**  
+Current baseline: **v0.10.5**  
 Current visual engine: **0.10.4**  
 Current config schema: **1**
 
@@ -17,11 +17,33 @@ Interaction:
 - no touch: composition runs inside the current mode;
 - hold: high-contrast four-band rupture + stronger audio processing;
 - fast swipe while holding: recursive swipe feedback;
-- upper-left `›`: manually advance to the next enabled visual mode;
-- upper-left FPS number: cycle BASE VISUAL FPS `15 -> 24 -> 30 -> 60`;
-- upper-left `S1...S4`: cycle VISUAL SPEED.
+- upper-right `›`: manually advance to the next enabled visual mode;
+- upper-right FPS number: cycle BASE VISUAL FPS `15 -> 24 -> 30 -> 60`;
+- upper-right `S1...S5`: cycle VISUAL SPEED.
 
 Automatic visual-mode advancement remains disabled by default.
+
+## v0.10.5 — five-step speed range + control placement
+
+The v0.10.4 virtual-time engine remains unchanged. Runtime speed presets are now:
+
+```text
+S1 0.25x -> state ≈ 5.6 Hz  / cut ≈ 960 ms
+S2 0.50x -> state ≈ 11.1 Hz / cut ≈ 480 ms
+S3 0.70x -> state ≈ 15.6 Hz / cut ≈ 343 ms
+S4 1.00x -> state ≈ 22.2 Hz / cut ≈ 240 ms
+S5 1.50x -> state ≈ 33.3 Hz / cut ≈ 160 ms
+```
+
+Startup default is now **S1 / 0.25x**.
+
+Runtime controls moved from the upper-left to the **upper-right** because the upper-left is occupied by telemetry on mobile.
+
+```text
+                              [ › ]
+                              [30 ]
+                              [S1 ]
+```
 
 ## v0.10.4 — virtual visual time
 
@@ -29,15 +51,10 @@ The visible base timeline is separated from sampling FPS.
 
 ```text
 VISUAL SPEED
-  S1 0.25x  slowest
-  S2 0.75x  default
-  S3 1.00x
-  S4 1.50x  fastest
-      │
-      └── advances VIRTUAL TIME
-            ├── crop / layout / blend state
-            ├── image-choice cut state
-            └── LUMA/time-driven base state
+  advances VIRTUAL TIME
+    ├── crop / layout / blend state
+    ├── image-choice cut state
+    └── LUMA/time-driven base state
 
 BASE VISUAL FPS
   15 / 24 / 30 / 60
@@ -57,25 +74,6 @@ POST FX FPS  = actual available render callbacks
 ```
 
 Changing visual speed preserves the accumulated virtual timeline position; it only changes future progression. Changing BASE FPS does not change timeline speed.
-
-Runtime controls:
-
-```text
-[ › ]  next mode
-[30 ]  BASE VISUAL FPS
-[S2 ]  VISUAL SPEED
-```
-
-Current speed presets:
-
-```text
-S1 0.25x -> state ≈ 5.6 Hz  / cut ≈ 960 ms
-S2 0.75x -> state ≈ 16.7 Hz / cut ≈ 320 ms
-S3 1.00x -> state ≈ 22.2 Hz / cut ≈ 240 ms
-S4 1.50x -> state ≈ 33.3 Hz / cut ≈ 160 ms
-```
-
-The S1 value was tuned from `0.50x` to `0.25x` after visual testing so the slowest state is meaningfully separated from S2.
 
 Telemetry exposes:
 
@@ -136,10 +134,10 @@ preset composition     [BASE VISUAL FPS sample-and-hold]
 ```js
 timing: {
   compositionFps: 30,
-  visualSpeedLevel: "S2",
-  visualSpeedMultiplier: 0.75,
+  visualSpeedLevel: "S1",
+  visualSpeedMultiplier: 0.25,
   visualStateIntervalMs: 45,
-  cutSpeedLevel: "S2", // legacy mirror
+  cutSpeedLevel: "S1", // legacy mirror
   cutIntervalMs: 240,  // measured on virtual time
   timeReferenceFps: 60,
   maxDeltaMs: 100,
@@ -153,7 +151,7 @@ timing: {
 - `js/visual-engine-v102.js` — sampled BASE VISUAL CLOCK;
 - `js/visual-engine-v103.js` — intermediate cut-clock experiment;
 - `js/visual-engine-v104.js` — cumulative virtual visual-time model;
-- `js/mode-control-ui.js` — mode/FPS/visual-speed runtime buttons;
+- `js/mode-control-ui.js` — mode/FPS/visual-speed runtime buttons and speed presets;
 - `js/telemetry.js` — FPS/base/speed diagnostics;
 - `PROJECT_STATE.md` — implementation checkpoint.
 

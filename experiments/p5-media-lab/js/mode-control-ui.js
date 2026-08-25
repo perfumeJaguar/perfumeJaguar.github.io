@@ -11,9 +11,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const FPS_OPTIONS = [15, 24, 30, 60];
   const SPEED_OPTIONS = [
     { level: "S1", multiplier: 0.25 },
-    { level: "S2", multiplier: 0.75 },
-    { level: "S3", multiplier: 1.00 },
-    { level: "S4", multiplier: 1.50 },
+    { level: "S2", multiplier: 0.50 },
+    { level: "S3", multiplier: 0.70 },
+    { level: "S4", multiplier: 1.00 },
+    { level: "S5", multiplier: 1.50 },
   ];
 
   const stopPointer = (event) => event.stopPropagation();
@@ -83,9 +84,9 @@ window.addEventListener("DOMContentLoaded", () => {
     if (Number.isFinite(multiplier) && multiplier > 0) {
       return SPEED_OPTIONS.reduce((best, option) =>
         Math.abs(option.multiplier - multiplier) < Math.abs(best.multiplier - multiplier) ? option : best,
-      SPEED_OPTIONS[1]);
+      SPEED_OPTIONS[0]);
     }
-    return SPEED_OPTIONS[1];
+    return SPEED_OPTIONS[0];
   };
 
   const updateSpeedButton = () => {
@@ -101,7 +102,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const nextSpeed = (current) => {
     const index = SPEED_OPTIONS.findIndex((option) => option.level === current.level);
-    return SPEED_OPTIONS[(index >= 0 ? index + 1 : 1) % SPEED_OPTIONS.length];
+    return SPEED_OPTIONS[(index >= 0 ? index + 1 : 0) % SPEED_OPTIONS.length];
   };
 
   if (speedButton) {

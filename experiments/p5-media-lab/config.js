@@ -7,13 +7,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 8,
+    configRevision: 9,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.10.4",
+    version: "0.10.5",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -23,14 +23,14 @@ window.DODREI_CONFIG = {
 
   // Three independent temporal concepts:
   // - compositionFps: BASE VISUAL sampling cadence, 15 -> 24 -> 30 -> 60.
-  // - visualSpeed*: virtual-time progression speed, S1 -> S2 -> S3 -> S4.
+  // - visualSpeed*: virtual-time progression speed, S1 -> S2 -> S3 -> S4 -> S5.
   // - outer p5 render / post FX: app.targetFps, currently 60 target.
   timing: {
     compositionFps: 30,
-    visualSpeedLevel: "S2",
-    visualSpeedMultiplier: 0.75,
+    visualSpeedLevel: "S1",
+    visualSpeedMultiplier: 0.25,
     visualStateIntervalMs: 45,
-    cutSpeedLevel: "S2", // legacy mirror for compatibility
+    cutSpeedLevel: "S1", // legacy mirror for compatibility
     cutIntervalMs: 240, // interval measured on virtual time
     timeReferenceFps: 60,
     maxDeltaMs: 100,
