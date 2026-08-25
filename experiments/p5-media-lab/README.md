@@ -4,14 +4,14 @@ A mobile-first browser media-art laboratory built with **p5.js / JavaScript** an
 
 This is an independent experiment, not part of the portfolio site's design system. It currently lives under `perfumeJaguar.github.io/experiments/` for deployment convenience and may later move into a media-art repository.
 
-## Current baseline
+## Current baseline — v0.7.0
 
-Current study: **photo-only**. Video code/assets may remain in the repository, but the active build discovers still images from `assets/images/`, preloads them, and uses them as the source archive.
+Current study: **photo-only**. Video code/assets may remain in the repository, but the active build discovers still images from `assets/images/` and keeps only a bounded decoded working set in memory.
 
 The current interaction vocabulary is deliberately small:
 
 - no touch: autonomous image composition;
-- hold: four-tone black / muted-red / white rupture plus stronger audio processing;
+- hold: four-tone black / dark-gray / muted-red / white rupture plus stronger audio processing;
 - fast swipe while holding: additional recursive feedback proportional to swipe speed.
 
 Audio is the user's original MP3. A native `<audio>` path provides reliable dry playback on mobile, while a parallel Web Audio layer provides interactive filtering, delay, feedback, and distortion.
@@ -20,40 +20,120 @@ Audio is the user's original MP3. A native `<audio>` path provides reliable dry 
 
 ### 1. `config.js` — start here
 
-This is intentionally the main tuning panel written as code. It now contains detailed comments beside the important parameters.
+This is intentionally the main tuning panel written as code.
 
-Useful examples:
+Important current values:
 
 ```js
-// How long each visual study remains active.
 modeDurationSec: 11,
 
-// Random source crops can range from almost untouched to severe enlargement.
+activeImageLimit: 20,
+rotationBatchSize: 5,
+rotationIntervalSec: 5,
+rotationLoadConcurrency: 1,
+
 sourceCropMinZoom: 1.0,
-sourceCropMaxZoom: 2.65,
+sourceCropMaxZoom: 2.5,
+sourceCropOverflowPan: 1.0,
 
-// Global common destruction applied to every visual study.
-crushContrast: 1.32,
-crushPosterizeLevels: 6,
-
-// Swipe must exceed this normalized speed before movement-feedback appears.
-swipeFeedbackThreshold: 0.20,
-
-// Strength range of the interactive audio layer.
-fxWetMin: 0.025,
-fxWetMax: 0.72,
+swipeFeedbackThreshold: 0.30,
 ```
 
-Change only a few values at once. This makes it much easier to hear/see what a parameter actually does.
+Change only a few values at once. This makes it easier to see or hear what a parameter actually changes.
 
-### 2. `visual-engine-v061.js` — effect implementation
+## Image archive and rolling working set
 
-This is where the actual visual building blocks live: source cropping, double exposure, RGB separation, halation, shard/slice composition, luminance mosaics, common crush, touch rupture, feedback, vignette, and waveform drawing.
+The full file archive is discovered through GitHub's public Contents API. `assets.js` remains a fallback if discovery fails.
 
-The important architectural distinction is:
+Unlike the older implementation, v0.7.0 does **not** decode the entire discovered archive before start.
 
 ```text
-IMAGE POOL
+FULL ARCHIVE
+lightweight path / set metadata
+        ↓
+SHUFFLE-BAG SELECTION
+        ↓
+20 decoded ACTIVE images
+        +
+up to 5 decoded STAGING images during rotation
+        ↓
+5-second interval after each completed swap
+```
+
+Initial loading uses a small bounded concurrency for startup speed. Runtime replacement is intentionally sequential (`rotationLoadConcurrency: 1`) to avoid decode spikes.
+
+When staging completes successfully, old active references are removed from the active pool and cache. Those decoded images then become eligible for browser garbage collection. Memory return is controlled by the browser and is not guaranteed to appear immediately in OS process statistics.
+
+### Selection behavior
+
+The current policy is a **shuffle bag**:
+
+- archive order is randomized on every page session;
+- active images are excluded from replacement candidates;
+- unused candidates are consumed before a new shuffled cycle begins where possible;
+- visual effects still choose freely from the current resident pool.
+
+Candidate selection is isolated inside the media manager rather than being embedded in effects. This is deliberate: later policies can add per-set quotas, weighted selection, or A/B alternation without rewriting the renderer.
+
+## Future image sets
+
+The media layer already assigns every archive item a `setId`. The current configuration uses one set:
+
+```js
+imageSets: [{ id: "default", subdir: "" }]
+```
+
+The intended future folder layout can therefore become, for example:
+
+```text
+assets/images/personA/
+assets/images/personB/
+```
+
+with configuration such as:
+
+```js
+imageSets: [
+  { id: "personA", subdir: "personA" },
+  { id: "personB", subdir: "personB" },
+]
+```
+
+At present all configured sets enter the same shuffle-bag pool. More specific mixing policies are intentionally left for later rather than hard-coded now.
+
+## Adaptive crop space
+
+Each visual source draw receives an independent crop. The artistic zoom range is currently fixed to **1.0x–2.5x**.
+
+The important v0.7.0 change is that crop position no longer considers only the extra zoom. It calculates the actual drawable overflow produced by:
+
+1. fitting the source to the current output using cover behavior; and
+2. applying the extra crop zoom.
+
+The crop can then move across the entire legal overflow range without revealing letterbox.
+
+This means a tall portrait image shown on a wide monitor can progressively reveal areas that the centered cover would normally hide above and below the viewport. A wide image on a portrait display receives the equivalent treatment on the horizontal axis.
+
+```text
+source image
+    ↓
+cover-fit to current buffer aspect ratio
+    ↓
+extra random zoom (1.0–2.5x)
+    ↓
+calculate total X/Y overflow
+    ↓
+random position across full legal overflow
+```
+
+The canvas/browser viewport is the relevant target ratio, not the physical monitor ratio.
+
+## Visual pipeline
+
+The important architectural distinction remains:
+
+```text
+RESIDENT IMAGE POOL
   ↓
 independent random crop PER SOURCE DRAW
   ↓
@@ -68,41 +148,9 @@ mode feedback / swipe feedback when applicable
 vignette + waveform + telemetry
 ```
 
-This means crop is not a global camera zoom. Each ingredient entering an effect can have a different crop, scale, and position.
-
-### 3. `visual-engine-v063.js` — current touch-color patch
-
-The current muted-red rupture palette is isolated here so it can be changed without rewriting the whole visual engine.
-
-The current four levels are approximately:
-
-```text
-black
-muted dark red
-muted red
-near-white
-```
-
-Edit the RGB values in this file if you want the red to become browner, darker, more saturated, etc.
-
-### 4. `audio-engine-v050.js` / `audio-touch-v060.js`
-
-The audio architecture is split deliberately:
-
-- native `<audio>` = stable audible dry source;
-- decoded PCM = analysis values and waveform;
-- Web Audio wet layer = filter / delay / feedback / distortion;
-- touch patch = stronger dry/wet reaction during press.
-
-This separation was kept because direct Web Audio playback previously proved less reliable on the target Android Chrome device.
-
-### 5. `telemetry.js`
-
-Controls the terminal-like information layer. Internal data stays readable in code, while the visible MODE / FX names can be replaced with pseudo-system names and corrupted characters for presentation.
+The current engine chain ends in `visual-engine-v070.js`. Older versioned files remain in place because later engines inherit previous behavior.
 
 ## Adding photographs
-
-Normally you do **not** need to edit a file list anymore.
 
 Put supported files into:
 
@@ -112,45 +160,30 @@ experiments/p5-media-lab/assets/images/
 
 Supported extensions are configured in `config.js` and currently include JPG, JPEG, PNG, WebP, GIF, and AVIF.
 
-On page load, the browser queries GitHub's public Contents API, discovers the files in that folder, and then preloads them before `TOUCH TO START` becomes available. `assets.js` remains only as a fallback if directory discovery fails.
-
-The present implementation intentionally preloads the whole archive. This is convenient for rapid random switching but can become memory-heavy with many large images. If the archive grows far beyond the current scale, the intended next architectural change is a rolling resident cache rather than changing the visual effects themselves.
+For future multi-set operation, put files into configured subfolders and add corresponding `imageSets` entries. No visual-effect code should need to change.
 
 ## Preset composition
 
-The active playlist is at the bottom of `config.js`:
-
-```js
-presets: [
-  { name: "PHOTO_FEEDBACK_CROP", photoFeedback: true, feedback: true },
-  { name: "PHOTO_RAPID_CROP", photoRapidCrop: true },
-  { name: "PHOTO_RGB_TEAR", photoRgbTear: true },
-  ...
-]
-```
-
-The array order is playback order. Remove an entry to skip it. Move it to reorder it. Duplicate it if you want a study to appear more frequently during testing.
-
-The internal names are deliberately plain and descriptive even though the telemetry display disguises them. Do not make the code labels cryptic just because the artwork's visible labels are cryptic.
+The active playlist is at the bottom of `config.js`. The array order is playback order during the present experiment. Presets are a test/composition mechanism; media rotation does **not** depend on preset changes, so the rolling cache remains valid if the final artwork later uses only one visual mode.
 
 ## Extensibility principles
 
-The project is written so the following parts can grow independently:
-
-- **media discovery/loading** does not need to know how a photo will be rendered;
-- **visual source selection/cropping** is reusable across multiple effects;
+- **archive discovery** knows about source sets and paths, not effects;
+- **resident-cache policy** knows which decoded images should remain available, not how they are drawn;
+- **candidate selection** is a replaceable policy boundary;
+- **visual source selection/cropping** is reusable across effects;
 - **presets** choose combinations of effects rather than owning asset loading;
-- **interaction** exposes normalized position, pressure, and swipe speed rather than hard-coding one artwork behavior;
-- **audio analysis/output** is separate from visual rendering;
-- **telemetry presentation** is separate from the honest internal names/data;
-- **configuration** holds the most common artistic parameters so experiments do not require engine rewrites.
-
-A new effect should normally be added as a new visual function plus one config/preset switch, not by modifying the media loader. A new interaction dimension should normally be added to the interaction snapshot first, then consumed by whichever visual/audio modules need it.
+- **interaction** exposes normalized position, pressure, and swipe speed;
+- **audio analysis/output** stays separate from visual rendering;
+- **telemetry presentation** stays separate from honest internal data;
+- **configuration** holds common artistic/performance parameters.
 
 ## Current limitations
 
-GitHub Pages is static, so directory discovery currently relies on GitHub's public API rather than a server-side filesystem scan. Large image archives can also hit mobile decoded-image memory before network bandwidth becomes the main problem. Finally, several p5/Canvas2D operations—especially blur, pixel operations, and recursive feedback—are CPU/GPU heavier than an equivalent shader implementation.
+JavaScript can remove strong references to evicted `p5.Image` objects, but the browser decides when garbage collection actually returns decoded-image memory. Browser HTTP caches may also retain compressed source files, which is separate from the much larger decoded bitmap memory.
 
-If this study evolves into much denser feedback, bloom, displacement, or dozens of simultaneous layers, a later Three.js/WebGL shader version may be a better technical endpoint. The present p5 structure is still useful because the media, interaction, preset, and parameter concepts can migrate without preserving the exact renderer.
+GitHub Pages remains static, so directory discovery depends on GitHub's public API. The current optional multi-set support expects explicitly configured subfolders rather than recursively crawling arbitrary folder trees.
+
+Several p5/Canvas2D operations—especially pixel loops and recursive feedback—remain more expensive than equivalent shader implementations. If the project grows into much denser displacement or multi-pass compositing, WebGL/Three.js may eventually be a better renderer.
 
 For current decisions and debugging history, read `PROJECT_STATE.md` before making major structural changes.
