@@ -1,6 +1,7 @@
 /** P5 MEDIA LAB 01 — APPLICATION ORCHESTRATOR v0.6.6 */
 let telemetry,mediaManager,analyzer,audioEngine,interaction,visualEngine;
 let appStarted=false,resizeTimer=null,runtimeFailed=false,lastViewportW=0,lastViewportH=0;
+window.DODREI_RUNTIME_PAUSED=false;
 
 async function setup(){
   try{
@@ -14,6 +15,7 @@ async function setup(){
     mediaManager=new P5LabMediaManager(P5LAB_ASSETS,P5LAB_CONFIG.media,telemetry);
     analyzer=new P5LabVideoAnalyzer(P5LAB_CONFIG.render,telemetry);
     audioEngine=new P5LabAudioEngine(P5LAB_ASSETS.audio,P5LAB_CONFIG.audio,telemetry);
+    window.DODREI_AUDIO_ENGINE=audioEngine;
 
     // IMPORTANT: instantiate the explicitly registered engine constructor.
     // Do not fall back to window.P5LabVisualEngine; top-level class bindings and
@@ -48,24 +50,12 @@ function draw(){
 
 function makeSnapshot(){return{system:{fps:frameRate()||0,bufferW:visualEngine.buffer?visualEngine.buffer.width:0,bufferH:visualEngine.buffer?visualEngine.buffer.height:0},media:mediaManager.snapshot(),analysis:analyzer.snapshot(),audio:audioEngine.snapshot(),interaction:interaction.snapshot(),visual:visualEngine.snapshot()};}
 
-function requestFullscreenFromGesture(){
-  if(!P5LAB_CONFIG.app.requestFullscreenOnStart||document.fullscreenElement)return;
-  const el=document.documentElement,fn=el.requestFullscreen||el.webkitRequestFullscreen;
-  if(!fn){telemetry.event('FULLSCREEN UNSUPPORTED');return;}
-  try{
-    const result=fn.call(el,{navigationUI:'hide'});
-    if(result&&typeof result.then==='function')result.then(()=>telemetry.event('FULLSCREEN ACTIVE')).catch(()=>telemetry.event('FULLSCREEN DENIED'));
-    else telemetry.event('FULLSCREEN REQUESTED');
-  }catch(_){telemetry.event('FULLSCREEN ERROR');}
-}
-
 function bindStartScreen(){
   const screen=document.getElementById('start-screen');
   const trigger=()=>{
     if(appStarted)return;
     appStarted=true;
     telemetry.event('USER GESTURE ACCEPTED');
-    requestFullscreenFromGesture();
     let ap,mp;
     try{ap=audioEngine.start();}catch(e){telemetry.event(`AUDIO START ERROR ${e.message||'UNKNOWN'}`);ap=Promise.reject(e);}
     try{mp=mediaManager.start();}catch(e){telemetry.event(`MEDIA START ERROR ${e.message||'UNKNOWN'}`);mp=Promise.reject(e);}
@@ -76,8 +66,23 @@ function bindStartScreen(){
   screen.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')trigger();});
 }
 
-function bindViewportEvents(){const schedule=()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(rebuildForViewport,180);};window.addEventListener('resize',schedule);window.addEventListener('orientationchange',schedule);document.addEventListener('fullscreenchange',schedule);}
-function rebuildForViewport(){if(!analyzer||!visualEngine||!telemetry)return;const v=P5LabUtils.viewportSize();if(Math.abs(v.width-lastViewportW)<2&&Math.abs(v.height-lastViewportH)<2)return;lastViewportW=v.width;lastViewportH=v.height;try{resizeCanvas(v.width,v.height);analyzer.rebuild(v.width,v.height);visualEngine.rebuild(v.width,v.height);telemetry.event(`VIEWPORT ${v.width}X${v.height}`);if(!isLooping())loop();}catch(e){runtimeFailed=true;showFatal(e);}}
+window.DODREI_SET_PAUSED=(paused)=>{
+  const next=!!paused;
+  window.DODREI_RUNTIME_PAUSED=next;
+  try{
+    if(next){
+      if(typeof noLoop==='function')noLoop();
+    }else{
+      if(visualEngine&&Object.prototype.hasOwnProperty.call(visualEngine,'_virtualLastWallMs'))visualEngine._virtualLastWallMs=millis();
+      if(typeof loop==='function')loop();
+    }
+  }catch(_){}
+  try{if(telemetry)telemetry.event(`VISUAL PLAYBACK ${next?'PAUSED':'RESUMED'}`);}catch(_){}
+  return next;
+};
+
+function bindViewportEvents(){const schedule=()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(rebuildForViewport,180);};window.addEventListener('resize',schedule);window.addEventListener('orientationchange',schedule);}
+function rebuildForViewport(){if(!analyzer||!visualEngine||!telemetry)return;const v=P5LabUtils.viewportSize();if(Math.abs(v.width-lastViewportW)<2&&Math.abs(v.height-lastViewportH)<2)return;lastViewportW=v.width;lastViewportH=v.height;try{resizeCanvas(v.width,v.height);analyzer.rebuild(v.width,v.height);visualEngine.rebuild(v.width,v.height);telemetry.event(`VIEWPORT ${v.width}X${v.height}`);if(!window.DODREI_RUNTIME_PAUSED&&!isLooping())loop();}catch(e){runtimeFailed=true;showFatal(e);}}
 function retryAudio(){if(audioEngine&&appStarted)audioEngine.retryFromGesture();}
 function mouseMoved(){if(interaction)interaction.move(mouseX,mouseY);}function mouseDragged(){if(interaction)interaction.move(mouseX,mouseY);return false;}function mousePressed(){retryAudio();if(interaction&&appStarted)interaction.press(mouseX,mouseY);return false;}function mouseReleased(){if(interaction)interaction.release();return false;}
 function touchStarted(event){retryAudio();if(interaction&&appStarted&&touches.length>0)interaction.press(touches[0].x,touches[0].y);if(event)event.preventDefault();return false;}function touchMoved(event){if(interaction&&touches.length>0)interaction.move(touches[0].x,touches[0].y);if(event)event.preventDefault();return false;}function touchEnded(event){if(interaction)interaction.release();if(event)event.preventDefault();return false;}
