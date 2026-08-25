@@ -1,77 +1,94 @@
-# p5 Media Lab 01 — Asset Guide
+# DODREI — Asset Guide
 
-## Test package to prepare
+Current baseline: **photo-only**.
 
-### Video
+## Images
 
-Prepare about **10 clips**.
+Recommended working format:
 
-Recommended first-pass format:
+- JPEG or WebP for most photographic material;
+- long edge roughly 1200–1800 px as a practical starting point;
+- portrait / landscape / square may be mixed;
+- avoid unnecessarily huge originals while the browser renderer remains Canvas2D/p5 based.
 
-- container: MP4
-- codec: H.264 / AVC
-- resolution: 1280 × 720
-- frame rate: 24, 25, or 30 fps
-- duration: about 4–8 seconds
-- audio track: unnecessary; muted in this project
-- target file size: roughly 2–8 MB each if practical
-
-The source may be landscape or portrait. The artwork intentionally crops using cover behavior.
-
-Avoid 4K originals for this web test. The goal is responsive decoding and manipulation on phones, not archival playback quality.
-
-### Images
-
-Prepare about **20 images**.
-
-Recommended:
-
-- JPEG or WebP
-- long edge: roughly 1200–1800 px
-- approximate size: 200 KB–1.5 MB each
-- mixed portrait / landscape / square is welcome
-
-### Audio
-
-One original composition is preferable to generated placeholder audio because it tests real musical density, dynamics, spectral balance and duration.
-
-Recommended:
-
-- MP3
-- 44.1 kHz or 48 kHz
-- 192–320 kbps
-- one complete track, roughly 3–8 minutes is convenient but not required
-
-## File naming
-
-Simple sequential names make later replacement easy:
+Current default folder:
 
 ```text
-assets/
-├── video/
-│   ├── video01.mp4
-│   ├── video02.mp4
-│   └── ...
-├── images/
-│   ├── photo01.jpg
-│   ├── photo02.jpg
-│   └── ...
-└── audio/
-    └── music.mp3
+assets/images/
 ```
 
-Then list those files in `assets.js`.
+DODREI discovers the archive through GitHub's public Contents API and keeps only a bounded decoded working set resident.
 
-## Why video is only 720p
+## Future image sets
 
-The displayed image can still fill a high-resolution phone screen because the browser scales it. The expensive parts of this laboratory are decoding, compositing, feedback and repeated analysis—not static pixel count alone.
+Additional sets can be stored as explicit subfolders:
 
-If a final artwork later proves visually dependent on higher source detail, test 1080p after the logic has stabilized.
+```text
+assets/images/
+├── personA/
+├── personB/
+└── ...
+```
 
-## Suggested content diversity
+and configured in `config.js`:
 
-For a useful test, do not choose ten clips that behave identically.
+```js
+imageSets: [
+  { id: "person-a", subdir: "personA" },
+  { id: "person-b", subdir: "personB" }
+]
+```
 
-Include a mixture of dark and bright scenes, static and highly moving scenes, hard cuts and slow movement, close texture and wider spatial images, and dominant-color versus nearly monochrome material.
+The `id` is the stable configuration identity. `subdir` is the actual folder path relative to the configured image root.
 
-This makes motion, luminance, RGB and feedback mappings easier to evaluate.
+Current runtime behavior pools configured sets into the same shuffle-bag candidate system. Weighting, quotas, strict alternation, and other cross-set policies are not implemented yet.
+
+## Audio
+
+One original composition is preferable because it exposes real musical density, dynamics and spectral balance.
+
+Recommended:
+
+- MP3;
+- 44.1 kHz or 48 kHz;
+- 192–320 kbps;
+- one complete track.
+
+Current audio path uses native HTML audio for stable audible playback plus a separate Web Audio analysis/effect layer.
+
+## Video
+
+Video code/assets may remain in the repository for earlier experiments, but video is not part of the current DODREI artistic baseline.
+
+Do not optimize or expand the video asset workflow unless video becomes active again.
+
+## Naming
+
+Filename order is not the playback order.
+
+Current image candidate selection is shuffle-bag based. Therefore filenames may stay human-readable without being used as sequencing instructions.
+
+Prefer stable, simple names and avoid renaming large archives without reason because Git history and browser caches become noisier.
+
+## Practical test diversity
+
+Useful image archives should contain enough variation to expose the visual system:
+
+- dark / bright;
+- low / high contrast;
+- portrait / landscape;
+- close texture / wider scene;
+- dominant-color / near-monochrome;
+- different subject placement.
+
+Because every source draw receives an independent crop, composition near image edges can become visible in unexpected viewports. Test with both portrait mobile and wide desktop layouts.
+
+## Source of truth
+
+Asset paths and runtime behavior should be verified against:
+
+- `config.js`
+- `PROJECT_STATE.md`
+- actual repository folders
+
+Do not reconstruct asset rules from older `p5 Media Lab 01` documentation when current DODREI files can be checked.

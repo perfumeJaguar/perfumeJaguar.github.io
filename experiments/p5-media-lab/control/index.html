@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>DODREI CONTROL</title>
+  <link rel="stylesheet" href="./style.css?v=20260825-1">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">DODREI / CONFIGURATION SYSTEM</div>
+      <h1>DODREI CONTROL</h1>
+    </div>
+    <a href="../" class="artwork-link">OPEN ARTWORK ↗</a>
+  </header>
+
+  <main>
+    <section class="status-panel">
+      <div class="status-cell"><span>SOURCE</span><strong id="source-label">CURRENT SITE</strong></div>
+      <div class="status-cell"><span>PROJECT</span><strong>DODREI</strong></div>
+      <div class="status-cell"><span>SCHEMA</span><strong>1</strong></div>
+      <div class="status-cell"><span>STATE</span><strong id="changed-count">0 MODIFIED</strong></div>
+    </section>
+
+    <section class="io-panel">
+      <div class="io-group">
+        <h2>LOAD</h2>
+        <div class="button-row">
+          <button id="load-current">CURRENT SITE</button>
+          <button id="load-local">LOCAL DRAFT</button>
+          <button id="choose-file">OPEN FILE</button>
+          <input id="file-input" type="file" accept=".js,.json,.json5,.txt" hidden>
+        </div>
+      </div>
+
+      <div class="io-group">
+        <h2>LOCAL</h2>
+        <div class="button-row">
+          <button id="save-local">SAVE DRAFT</button>
+          <button id="clear-local">CLEAR DRAFT</button>
+        </div>
+      </div>
+
+      <div class="io-group io-paste">
+        <div class="paste-head">
+          <h2>PASTE / TEXT</h2>
+          <button id="paste-current" class="small-button">PUT CURRENT CONFIG HERE</button>
+        </div>
+        <textarea id="paste-input" spellcheck="false" placeholder="Paste JSON, JSON5, or a DODREI config.js object here."></textarea>
+        <button id="import-paste">IMPORT TEXT</button>
+      </div>
+    </section>
+
+    <section id="import-report" class="import-report" hidden></section>
+
+    <div class="editor-intro">
+      <p>Every value in the current config is rendered. Known fields use schema metadata; future unknown fields fall back to inferred controls.</p>
+      <p>Red import items are ignored. Missing values keep the current-site default. Stable collection IDs preserve compatibility when order changes.</p>
+    </div>
+
+    <div id="editor"></div>
+
+    <section class="export-panel">
+      <div>
+        <div class="eyebrow">EXPORT</div>
+        <h2>WRITE BACK</h2>
+        <p>GitHub Pages cannot write the repository directly. Download <code>config.js</code>, replace the repository file, then commit it.</p>
+      </div>
+      <div class="export-actions">
+        <button id="download-js">DOWNLOAD config.js</button>
+        <button id="download-json">DOWNLOAD JSON</button>
+        <button id="copy-js">COPY config.js</button>
+        <button id="reset-all" class="danger">RESET ALL</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/json5@2.2.3/dist/index.min.js"></script>
+  <script src="../config.js?v=20260825-1"></script>
+  <script src="../config-schema.js?v=20260825-1"></script>
+  <script src="./control.js?v=20260825-1"></script>
+</body>
+</html>
