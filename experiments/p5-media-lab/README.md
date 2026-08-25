@@ -2,7 +2,7 @@
 
 DODREI is a mobile-first browser media-art experiment built with p5.js / JavaScript and hosted on GitHub Pages.
 
-Current artwork/runtime: **v1.0.4**  
+Current artwork/runtime: **v1.0.5**  
 Current visual engine: **v1.0.4**  
 Config schema: **1**
 
@@ -16,23 +16,42 @@ START MODE   PHOTO_DOUBLE_BLEND
 POST MASTER  ON
 POST CHAIN   HC -> LS -> BL -> DK
 TOUCH SPEED  0.50x visual playback while held
+FULLSCREEN   OFF
 ```
 
-These defaults match:
+These visual defaults match:
 
 ```text
 ?fps=24&speed=S1&post=1&fx=HC,LS,BL,DK&mode=photo-double-blend&crop=10-50
 ```
 
-When those URL parameters are absent, the config above is used. URL parameters still override only the values they explicitly provide.
+## v1.0.5 presentation / utility changes
+
+The start screen is now centered and uses a neutral gray palette. Its display typeface is **Cormorant Garamond**, while runtime telemetry and test controls remain IBM Plex Mono. Automatic fullscreen entry has been removed.
+
+Telemetry source filenames are display-obfuscated only:
+
+- the real filename/path is untouched;
+- digits and punctuation are preserved;
+- letters in the basename are replaced by random alphabetic characters;
+- the extension is preserved exactly;
+- each real filename receives one alias per page session and reuses that alias afterward.
+
+The alias cache contains only short strings, so its performance/memory cost is negligible relative to decoded image buffers.
+
+Two lower-right utility controls now sit above `SHR`:
+
+```text
+[PAU] pause/resume visual playback
+[MUT] mute/unmute audio output
+[SHR] copy current settings as a share URL
+```
+
+`PAU` freezes the p5 visual loop but does not pause the audio transport. `MUT` silences both the native dry audio and the parallel wet-FX output.
 
 ## Touch playback behavior
 
-v1.0.4 adds a dedicated `touchPlaybackSpeedMultiplier: 0.50`.
-
-While pointer/touch is held, the **virtual visual timeline** advances at half speed. Therefore image cuts and crop/layout evolution slow together. Touch rupture, swipe feedback, POST bypass behavior, audio FX, and the outer render FPS are not slowed by this setting.
-
-The older cut-only `touchTransitionSlowdown` is now `0.0` so the touch slowdown is a clean 50% playback multiplier rather than stacking two slowdown systems.
+While pointer/touch is held, the virtual visual timeline advances at half speed. Image cuts and crop/layout evolution slow together. Touch rupture, swipe feedback, POST bypass behavior, audio FX, and the outer render FPS are not slowed by this setting.
 
 ## Scene image selection
 
@@ -48,7 +67,7 @@ A selected image is held for its image cut while crop/layout can refresh faster 
 
 ## Crop behavior
 
-Crop zoom is sampled inside the configured range rather than treated as a fixed zoom. Current default is `1.0x .. 5.0x`.
+Crop zoom is sampled inside the configured range. Current default is `1.0x .. 5.0x`.
 
 Preferred URL notation:
 
@@ -75,6 +94,8 @@ crop=12-35   -> 1.2x .. 3.5x
 [DK   ] darken
 [VG   ] strong vignette
 
+[PAU  ] pause/resume visuals
+[MUT  ] mute/unmute audio
 [SHR  ] copy current settings as a share URL
 ```
 
@@ -89,18 +110,12 @@ mode=<preset-id | internal preset name | displayed MODE alias>
 crop=<min-max range>
 ```
 
-FX order is significant. `SHR` serializes current mode, FPS, speed, POST master state, active FX order, and crop min/max range.
+FX order is significant. `SHR` serializes current mode, FPS, speed, POST master state, active FX order, and crop min/max range. Pause/mute state is intentionally not serialized.
 
 ## Typography / telemetry
 
-DODREI uses **IBM Plex Mono** for DOM controls and p5 canvas telemetry. Telemetry remains neutral off-gray:
-
-```text
-text color        RGB 214 / 214 / 210
-primary alpha     0.52
-secondary alpha   0.28
-faint/event alpha 0.14
-```
+Start screen: **Cormorant Garamond**, neutral gray.  
+Runtime controls + p5 telemetry: **IBM Plex Mono**, neutral off-gray telemetry.
 
 ## Active mode order
 
@@ -113,15 +128,17 @@ faint/event alpha 0.14
 06 PHOTO_FULL
 ```
 
-Default start mode is now `PHOTO_DOUBLE_BLEND`.
+Default start mode is `PHOTO_DOUBLE_BLEND`.
 
 ## Important files
 
 - `config.js` — canonical defaults;
-- `js/url-preset.js` — URL override validation + share-link serializer;
+- `style.css` — runtime controls + start-screen presentation;
+- `assets/fonts/webfonts.css` — webfont registry including Cormorant Garamond;
+- `js/telemetry-filename-v105.js` — session-stable display filename aliases;
+- `js/audio-mute-v105.js` — dry + wet audio mute layer;
+- `js/runtime-utility-controls-v105.js` — PAU / MUT controls;
 - `js/visual-engine-v1003.js` — independent scene image slots + bounded crop randomization;
 - `js/visual-engine-v1004.js` — 50% visual playback while touch is held;
-- `js/visual-engine-v1000.js` — POST master/blur/touch rupture behavior;
-- `js/media-manager.js` — rolling resident working set;
 - `js/mode-control-ui.js` — test controls + share button;
 - `PROJECT_STATE.md` — implementation checkpoint.
