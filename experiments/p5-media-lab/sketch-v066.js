@@ -1,6 +1,6 @@
 /** P5 MEDIA LAB 01 — APPLICATION ORCHESTRATOR v0.6.6 */
 let telemetry,mediaManager,analyzer,audioEngine,interaction,visualEngine;
-let appStarted=false,resizeTimer=null,runtimeFailed=false,lastViewportW=0,lastViewportH=0;
+let appStarted=false,appStartedMs=0,resizeTimer=null,runtimeFailed=false,lastViewportW=0,lastViewportH=0;
 window.DODREI_RUNTIME_PAUSED=false;
 
 async function setup(){
@@ -35,13 +35,27 @@ function draw(){
   if(runtimeFailed)return;
   try{
     if(!telemetry||!mediaManager||!analyzer||!audioEngine||!interaction||!visualEngine){background(0);return;}
+
     interaction.update();
     mediaManager.update();
     const source=mediaManager.getSource();
-    const analysis=analyzer.update(source,interaction.snapshot());
-    const audio=audioEngine.update(analysis,interaction.snapshot());
-    visualEngine.render(source,mediaManager.getCurrentImage(),mediaManager.getImagePool(),analysis,audio,interaction.snapshot());
-    telemetry.render(makeSnapshot());
+    const interactionSnapshot=interaction.snapshot();
+    const analysis=analyzer.update(source,interactionSnapshot);
+    const audio=audioEngine.update(analysis,interactionSnapshot);
+
+    const interfaceDelay=Math.max(0,Number(P5LAB_CONFIG.app.interfaceDelayMs)||0);
+    const visualDelay=Math.max(0,Number(P5LAB_CONFIG.app.visualDelayMs)||0);
+    const elapsed=appStarted?Math.max(0,millis()-appStartedMs):0;
+    const interfaceReady=appStarted&&elapsed>=interfaceDelay;
+    const visualReady=appStarted&&elapsed>=visualDelay;
+
+    if(visualReady){
+      visualEngine.render(source,mediaManager.getCurrentImage(),mediaManager.getImagePool(),analysis,audio,interactionSnapshot);
+    }else{
+      background(P5LAB_CONFIG.render.background);
+    }
+
+    if(interfaceReady)telemetry.render(makeSnapshot());
   }catch(e){runtimeFailed=true;showFatal(e);try{noLoop();}catch(_){}}
 }
 
@@ -52,6 +66,7 @@ function bindStartScreen(){
   const trigger=()=>{
     if(appStarted)return;
     appStarted=true;
+    appStartedMs=millis();
     telemetry.event('USER GESTURE ACCEPTED');
     let ap,mp;
     try{ap=audioEngine.start();}catch(e){telemetry.event(`AUDIO START ERROR ${e.message||'UNKNOWN'}`);ap=Promise.reject(e);}
