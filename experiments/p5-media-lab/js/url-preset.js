@@ -10,7 +10,8 @@
  *   speed=S1|S2|S3|S4|S5
  *   post=0|1
  *   fx=HC,LS,BL,DK   (ordered; NONE is also valid)
- *   mode=<preset id>
+ *   mode=<preset id | internal name | displayed telemetry alias>
+ *   crop=25|30       (2.5x / 3.0x shorthand; 1.0..5.0 direct values also valid)
  */
 (() => {
   const config = window.DODREI_CONFIG || window.P5LAB_CONFIG;
@@ -23,13 +24,7 @@
   const presets = Array.isArray(visual.presets) ? visual.presets : [];
 
   const FPS_VALUES = [15, 24, 30, 60];
-  const SPEED_VALUES = {
-    S1: 0.25,
-    S2: 0.50,
-    S3: 0.70,
-    S4: 1.00,
-    S5: 1.50,
-  };
+  const SPEED_VALUES = { S1: 0.25, S2: 0.50, S3: 0.70, S4: 1.00, S5: 1.50 };
   const FX_BY_TOKEN = {
     BW: "bw",
     GS: "grayscale",
@@ -42,7 +37,42 @@
   };
   const TOKEN_BY_FX = Object.fromEntries(Object.entries(FX_BY_TOKEN).map(([token, key]) => [key, token]));
   const FX_KEYS = Object.values(FX_BY_TOKEN);
-  const PARAM_KEYS = ["fps", "speed", "post", "fx", "mode"];
+  const PARAM_KEYS = ["fps", "speed", "post", "fx", "mode", "crop"];
+
+  // Mirrors telemetry.aliasMode() so a viewer can paste the MODE label exactly
+  // as it appears on screen. Share links still emit the stable preset id.
+  const MODE_ALIAS_BY_NAME = {
+    PHOTO_FEEDBACK_CROP: "NULL//VEIL_7F",
+    PHOTO_RAPID_CROP: "CUT.RASTER//19",
+    PHOTO_RGB_TEAR: "CHR_MA::W0UND",
+    PHOTO_HALATION: "HALO//FOG_ERR",
+    PHOTO_SHARD_SWAP: "SHARD.BLEED//A3",
+    PHOTO_DOUBLE_BLEND: "TWIN_EXPOSURE//NULL",
+    PHOTO_BLEND_CYCLE: "MIX.CYCLE//BROKEN",
+    PHOTO_FULL: "SOURCE//UNMARKED",
+    LUMA_BLOCKS: "LUX_GRID//D4",
+    LUMA_VOID: "VOID.LUMA//00",
+    LUMA_MONO: "ASH_FIELD//1B",
+    LUMA_DITHER: "DITHER//GHOST_8",
+    LUMA_PULSE: "LUX.PULSE//ERR",
+  };
+
+  const normalizeMode = (value) => String(value || "").trim().toUpperCase();
+  const parseCrop = (raw) => {
+    const n = Number(String(raw ?? "").trim());
+    if (!Number.isFinite(n)) return null;
+    // Compact human-friendly notation: 25 -> 2.5x, 30 -> 3.0x.
+    if (n >= 10 && n <= 50) return n / 10;
+    if (n >= 1 && n <= 5) return n;
+    return null;
+  };
+  const formatCrop = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 1 || n > 5) return null;
+    const compact = n * 10;
+    if (Math.abs(compact - Math.round(compact)) < 0.0001) return String(Math.round(compact));
+    return String(Number(n.toFixed(2)));
+  };
 
   const params = new URLSearchParams(window.location.search);
   const applied = {};
@@ -75,9 +105,7 @@
 
   if (params.has("fx")) {
     const raw = String(params.get("fx") || "").trim().toUpperCase();
-    const tokens = raw === "NONE"
-      ? []
-      : raw.split(",").map((item) => item.trim()).filter(Boolean);
+    const tokens = raw === "NONE" ? [] : raw.split(",").map((item) => item.trim()).filter(Boolean);
     const unique = new Set(tokens);
     const valid = raw === "NONE" || (
       tokens.length > 0 &&
@@ -98,11 +126,24 @@
   }
 
   if (params.has("mode")) {
-    const mode = String(params.get("mode") || "").trim().toLowerCase();
-    const index = presets.findIndex((preset) => String(preset?.id || "").toLowerCase() === mode);
+    const requested = normalizeMode(params.get("mode"));
+    const index = presets.findIndex((preset) => {
+      const id = normalizeMode(preset?.id);
+      const name = normalizeMode(preset?.name);
+      const alias = normalizeMode(MODE_ALIAS_BY_NAME[preset?.name]);
+      return requested === id || requested === name || requested === alias;
+    });
     if (index >= 0) {
       modeControl.startIndex = index;
       applied.mode = presets[index].id;
+    }
+  }
+
+  if (params.has("crop")) {
+    const crop = parseCrop(params.get("crop"));
+    if (crop !== null) {
+      visual.sourceCropMaxZoom = crop;
+      applied.crop = crop;
     }
   }
 
@@ -161,6 +202,9 @@
     const mode = currentModeId();
     if (mode) url.searchParams.set("mode", mode);
 
+    const crop = formatCrop(visual.sourceCropMaxZoom);
+    if (crop) url.searchParams.set("crop", crop);
+
     return url.toString();
   };
 
@@ -174,6 +218,8 @@
       fps: FPS_VALUES.slice(),
       speed: Object.keys(SPEED_VALUES),
       fx: Object.keys(FX_BY_TOKEN),
+      crop: "10..50 => 1.0x..5.0x, or direct 1.0..5.0",
+      mode: "preset id, internal preset name, or displayed telemetry alias",
     },
   };
 })();
