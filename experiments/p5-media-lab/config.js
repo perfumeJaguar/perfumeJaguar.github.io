@@ -4,8 +4,8 @@
  * Canonical, human-editable configuration for the current browser artwork.
  */
 window.DODREI_CONFIG = {
-  meta: { project: "DODREI", schemaVersion: 1, configRevision: 26, generatedBy: "hand-or-control" },
-  app: { title: "DODREI", version: "1.0.15", targetFps: 60, requestFullscreenOnStart: false, preventContextMenu: true, modeDurationSec: 11, imageSwitchSec: 0.10, startScreenHoldMs: 2000, telemetryStartDelayMs: 3000, telemetryStaggerMs: 200, visualDimDelayAfterTelemetryMs: 3000, visualFullDelayAfterDimMs: 1000 },
+  meta: { project: "DODREI", schemaVersion: 1, configRevision: 27, generatedBy: "hand-or-control" },
+  app: { title: "DODREI", version: "1.0.16", targetFps: 60, requestFullscreenOnStart: false, preventContextMenu: true, modeDurationSec: 11, imageSwitchSec: 0.10, startScreenHoldMs: 2000, telemetryStartDelayMs: 3000, telemetryStaggerMs: 200, visualDimDelayAfterTelemetryMs: 3000, visualFullDelayAfterDimMs: 1000 },
   timing: { compositionFps: 24, visualSpeedLevel: "S2", visualSpeedMultiplier: 0.50, visualStateIntervalMs: 45, cutSpeedLevel: "S2", cutIntervalMs: 240, timeReferenceFps: 60, maxDeltaMs: 100 },
   render: { pixelDensity: 1, background: 0, maxBufferLongEdgeMobile: 720, maxBufferLongEdgeDesktop: 1280, mobileMainOversample: 2.0, analysisWidthMobile: 128, analysisWidthDesktop: 180, analysisEveryNFrames: 2, analysisPixelStep: 2 },
   media: { videosEnabled: false, autoDiscoverImages: true, githubOwner: "perfumeJaguar", githubRepo: "perfumeJaguar.github.io", githubBranch: "main", githubImageDir: "experiments/p5-media-lab/assets/images", imageExtensions: ["jpg","jpeg","png","webp","gif","avif"], imageSets: [{ id: "default", subdir: "" }], activeImageLimit: 20, initialLoadConcurrency: 3, rotationBatchSize: 5, rotationIntervalSec: 5, rotationLoadConcurrency: 1, rotationPolicy: "shuffle-bag" },
@@ -14,7 +14,7 @@ window.DODREI_CONFIG = {
   visual: {
     enabled: true,
     sceneImageSelectionPolicy: "independent-with-replacement",
-    sourceCropMinZoom: 1.0, sourceCropMaxZoom: 9.0, sourceCropTouchBoost: 0.0, sourceCropPanFactor: 0.42, sourceCropOverflowPan: 1.0,
+    sourceCropMinZoom: 1.0, sourceCropMaxZoom: 8.0, sourceCropTouchBoost: 0.0, sourceCropPanFactor: 0.42, sourceCropOverflowPan: 1.0,
     touchTransitionSlowdown: 0.0,
     touchPlaybackSpeedMultiplier: 0.50,
     feedbackScale: 0.994, feedbackAlpha: 154, feedbackResolutionScaleMobile: 0.52, feedbackResolutionScaleDesktop: 0.72,
@@ -25,12 +25,12 @@ window.DODREI_CONFIG = {
     touchRuptureContrast: 3.2, touchRuptureBands: 13, touchRuptureResolutionScaleMobile: 0.50, touchRuptureResolutionScaleDesktop: 0.70, touchRuptureFrameSkipMobile: 2, touchRuptureFrameSkipDesktop: 1,
     touchPalette: { thresholds: [64,128,192], colors: [[0,0,0],[72,72,72],[238,94,90],[246,246,244]] },
     swipeFeedbackThreshold: 0.25, swipeFeedbackStrength: 2.00, swipeFeedbackScaleMin: 0.985, swipeFeedbackScaleMax: 1.012, swipeFeedbackAlphaMin: 42, swipeFeedbackAlphaMax: 178,
-    modeControl: { strategy: "sequence", startIndex: 3, loop: true, autoAdvance: false, manualButtonEnabled: true },
+    modeControl: { strategy: "sequence", startIndex: 0, loop: true, autoAdvance: false, manualButtonEnabled: true },
     presets: [
+      { id: "photo-double-blend", name: "PHOTO_DOUBLE_BLEND", enabled: true, photoDoubleBlend: true },
       { id: "photo-feedback-crop", name: "PHOTO_FEEDBACK_CROP", enabled: true, photoFeedback: true, feedback: true },
       { id: "photo-rapid-crop", name: "PHOTO_RAPID_CROP", enabled: true, photoRapidCrop: true },
       { id: "photo-shard-swap", name: "PHOTO_SHARD_SWAP", enabled: true, photoShardSwap: true },
-      { id: "photo-double-blend", name: "PHOTO_DOUBLE_BLEND", enabled: true, photoDoubleBlend: true },
       { id: "photo-blend-cycle", name: "PHOTO_BLEND_CYCLE", enabled: true, photoBlendCycle: true },
       { id: "photo-full", name: "PHOTO_FULL", enabled: true, photoFull: true }
     ],
