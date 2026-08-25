@@ -1,99 +1,92 @@
 # DODREI
 
-DODREI is a mobile-first browser media-art experiment built with **p5.js / JavaScript** and hosted on GitHub Pages.
+DODREI is a mobile-first browser media-art experiment built with p5.js / JavaScript and hosted on GitHub Pages.
 
-Current baseline: **v1.0.0**  
-Current visual engine: **1.0.0**  
-Current config schema: **1**
+Current artwork/runtime: **v1.0.1**  
+Current visual engine: **v1.0.0**  
+Config schema: **1**
+
+## Current defaults
+
+```text
+BASE FPS     24
+VIS SPEED    S2 / 0.50x
+MAX CROP     3.0x
+POST MASTER  ON
+POST CHAIN   HC -> LS -> BL -> DK
+```
+
+`BW / GS / CR / VG` start OFF. BL remains a subtle `1.20px` blur.
 
 ## Runtime controls
 
-Upper-right:
-
 ```text
-[ › ]  next visual mode
-[60 ]  BASE VISUAL FPS: 15 -> 24 -> 30 -> 60
-[S5 ]  VISUAL SPEED: S1 -> S2 -> S3 -> S4 -> S5
+[ ›   ] next mode
+[24   ] base visual FPS
+[S2   ] visual speed
+[POST ] POST COMMON FX master bypass
+[BW   ] binary black/white
+[GS   ] grayscale
+[LS   ] low saturation
+[BL   ] subtle blur
+[CR   ] Common Crush
+[HC   ] high contrast
+[DK   ] darken
+[VG   ] strong vignette
 
-[POST] POST COMMON FX master bypass
-[BW  ] binary black/white
-[GS  ] grayscale
-[LS  ] low saturation (~50%)
-[BL  ] subtle blur
-[CR  ] Common Crush
-[HC  ] high contrast color
-[DK  ] darken overlay
-[VG  ] strong vignette
+[SHR  ] copy current settings as a share URL
 ```
 
-Speed presets:
+The share button is placed at the lower-right edge. Successful copy shows a brief `LINK COPIED` message.
+
+## URL presets / share links
+
+`js/url-preset.js` reads validated query parameters before the visual engine is created. Missing or invalid values are ignored and normal config defaults remain in effect.
+
+Supported parameters:
 
 ```text
-S1 0.25x
-S2 0.50x
-S3 0.70x
-S4 1.00x
-S5 1.50x
+fps=15|24|30|60
+speed=S1|S2|S3|S4|S5
+post=0|1
+fx=HC,LS,BL,DK     ordered POST chain; NONE is valid
+mode=<preset-id>
 ```
 
-Startup default is **S5 / 1.50x** at BASE FPS **60**.
-
-Startup POST FX chain is:
+Example:
 
 ```text
-HC -> CR -> LS -> DK
+?fps=24&speed=S2&post=1&fx=HC,LS,BL,DK&mode=photo-feedback-crop
 ```
 
-`POST` starts ON. `BW / GS / BL / VG` start OFF. `LS` uses `saturate(0.50)`. `BL` uses a subtle `1.20px` canvas blur.
+FX order in the URL is significant. `SHR` serializes the current mode, FPS, speed, POST master state, active FX states, and current FX activation order.
 
-## v1.0.0 interaction / POST behavior
+The URL preset layer is independent of the test controls, so a later public build can hide/remove the control UI while keeping the same share-link format.
 
-POST COMMON FX is an activation-ordered chain. Turning an effect ON appends it; turning it OFF removes it; turning it back ON moves it to the end.
+## Typography / telemetry
 
-The new `POST` master switch is a non-destructive bypass:
+DODREI v1.0.1 uses **IBM Plex Mono** with a muted gray-green presentation instead of pure white. The treatment is intentionally restrained:
 
-- POST OFF bypasses the whole global chain;
-- individual POST FX buttons are disabled while bypassed;
-- the active effect states and their order are not changed;
-- POST ON restores the exact previous chain.
+- primary telemetry alpha `0.56`;
+- secondary alpha `0.30`;
+- faint/event alpha `0.16`;
+- base text color approximately RGB `190 / 215 / 196`;
+- existing transient character corruption retained;
+- occasional ~1.6px line displacement;
+- very slow ±1px overall drift;
+- no text blur, multi-shadow stack, or chromatic split.
 
-Touch rupture has its own transient POST bypass. While the screen touch rupture is active, POST COMMON FX is skipped automatically. When the touch effect ends, POST returns automatically **only if the POST master was already ON**. The touch bypass never changes the manual master state, so the two controls do not conflict.
+The goal is a dry institutional/backrooms feel without adding meaningful rendering cost or turning the UI into a generic glitch effect.
 
-Swipe feedback now activates at `0.25` instead of `0.30`, and its recursive transform/retention strength is multiplied by `2.0`.
+Reusable webfont declarations live in `assets/fonts/webfonts.css` for IBM Plex Mono, Space Mono, Share Tech Mono, and VT323. IBM Plex Mono is the only one used by DODREI at present.
 
-## Visual architecture
+## POST / touch behavior
 
-```text
-COMPOSITION
-├─ MODE
-└─ PRE COMMON FX      [same level as MODE; currently empty]
-        ↓
-POST COMMON FX        [ordered + cached]
-├─ master bypass
-├─ BW
-├─ GS
-├─ LS
-├─ BL
-├─ CR
-├─ HC
-├─ DK
-└─ VG
-        ↓
-TOUCH / GESTURE
-├─ touch rupture      [temporarily bypasses POST]
-├─ preset feedback
-└─ swipe feedback     [threshold 0.25 / strength 2.0]
-        ↓
-FINAL
-├─ mild vignette
-└─ waveform
-```
+POST COMMON FX remains activation-ordered and cached. `POST` is a non-destructive master bypass: turning it off disables individual FX controls without changing their state/order. Touch rupture transiently bypasses POST and restores it afterward only when the manual POST master is still enabled.
+
+Swipe feedback remains at threshold `0.25` with strength `2.0`.
 
 ## Active mode order
-
-The heavy `PHOTO_RGB_TEAR` mode (telemetry alias `CHR_MA::W0UND`) remains removed from the active sequence. All LUMA/mosaic modes remain deferred to TODO. Their implementation code is retained for possible later reuse.
-
-The clean source mode is deliberately last.
 
 ```text
 01 PHOTO_FEEDBACK_CROP
@@ -104,56 +97,19 @@ The clean source mode is deliberately last.
 06 PHOTO_FULL
 ```
 
-## Touch audio
-
-Touch audio rupture still uses the native dry track plus the parallel Web Audio FX path. The quieter tuning introduced in v0.10.7 remains active.
-
-## Telemetry text corruption
-
-The pseudo-system text glitch remains distributed across status labels, parameter rows, mode/FX text, and event messages. Corruption is transient and pseudo-random; underlying telemetry values are unchanged.
-
-## Temporal model
-
-```text
-VISUAL SPEED = timeline progression speed
-BASE FPS     = sampling cadence of that timeline
-POST FX FPS  = actual available render callbacks
-```
-
-The cumulative virtual-time model lives in `js/visual-engine-v104.js`; PRE/POST COMMON FX baseline lives in `js/visual-engine-v105.js`; activation-order POST FX + grayscale lives in `js/visual-engine-v107.js`; low-saturation support lives in `js/visual-engine-v108.js`; the v1 milestone behavior lives in `js/visual-engine-v1000.js`.
-
-## Performance baseline
-
-- `pixelDensity(1)`;
-- mobile main processing buffer long edge: `720`;
-- desktop main buffer long edge: `1280`;
-- mobile rupture buffer scale: `0.50`;
-- mobile rupture recalculation every second rendered frame;
-- GPU four-band touch palette with CPU fallback;
-- reduced-resolution feedback buffers;
-- decoded active image pool: `20`;
-- staging: up to `5`;
-- halation/bloom removed;
-- RGB tear removed from active modes;
-- LUMA/mosaic modes deferred;
-- POST result cached while active;
-- BL is deliberately subtle, but blur is still more expensive than simple saturation/darken passes.
+`PHOTO_FULL` remains the final clean source mode. `PHOTO_RGB_TEAR / CHR_MA::W0UND` and all LUMA/mosaic modes remain removed/deferred for performance.
 
 ## Important files
 
-- `config.js` — runtime values, startup chain, POST master/defaults, feedback tuning;
-- `js/visual-engine-v104.js` — cumulative virtual visual time;
-- `js/visual-engine-v105.js` — PRE/POST COMMON FX architecture and cached global effects;
-- `js/visual-engine-v107.js` — activation-order POST FX chain and grayscale;
-- `js/visual-engine-v108.js` — low-saturation POST FX;
+- `config.js` — canonical defaults;
+- `js/url-preset.js` — URL override validation + share-link serializer;
 - `js/visual-engine-v1000.js` — v1 blur, POST master/touch bypass, stronger swipe feedback;
-- `js/audio-touch-v060.js` — touch-audio rupture with quieter tuning;
-- `js/telemetry-v107.js` — distributed pseudo-random text corruption;
-- `js/mode-control-ui.js` — mode/FPS/speed/POST controls;
+- `js/telemetry-v107.js` — distributed text corruption;
+- `js/telemetry-v101.js` — IBM Plex Mono color/drift styling;
+- `js/mode-control-ui.js` — test controls + share button;
+- `assets/fonts/webfonts.css` — shared free webfont registry;
 - `PROJECT_STATE.md` — implementation checkpoint.
 
-## Deferred
+## Performance note
 
-- Revisit/rebuild LUMA/mosaic modes later rather than keeping them in the current runtime rotation.
-- Mild GPU softness / analog texture remains under consideration.
-- PRE COMMON FX has a hook but no active effect yet.
+Telemetry styling uses only font/color/alpha/coordinate changes. The new URL/share layer is event-driven. Neither adds a meaningful per-frame graphics cost. BL is still the comparatively expensive global FX because blur samples neighboring pixels, but it remains deliberately weak.
