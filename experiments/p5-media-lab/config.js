@@ -4,8 +4,8 @@
  * Canonical, human-editable configuration for the current browser artwork.
  */
 window.DODREI_CONFIG = {
-  meta: { project: "DODREI", schemaVersion: 1, configRevision: 14, generatedBy: "hand-or-control" },
-  app: { title: "DODREI", version: "1.0.1", targetFps: 60, requestFullscreenOnStart: true, preventContextMenu: true, modeDurationSec: 11, imageSwitchSec: 0.10 },
+  meta: { project: "DODREI", schemaVersion: 1, configRevision: 15, generatedBy: "hand-or-control" },
+  app: { title: "DODREI", version: "1.0.2", targetFps: 60, requestFullscreenOnStart: true, preventContextMenu: true, modeDurationSec: 11, imageSwitchSec: 0.10 },
   timing: { compositionFps: 24, visualSpeedLevel: "S2", visualSpeedMultiplier: 0.50, visualStateIntervalMs: 45, cutSpeedLevel: "S2", cutIntervalMs: 240, timeReferenceFps: 60, maxDeltaMs: 100 },
   render: { pixelDensity: 1, background: 0, maxBufferLongEdgeMobile: 720, maxBufferLongEdgeDesktop: 1280, analysisWidthMobile: 128, analysisWidthDesktop: 180, analysisEveryNFrames: 2, analysisPixelStep: 2 },
   media: { videosEnabled: false, autoDiscoverImages: true, githubOwner: "perfumeJaguar", githubRepo: "perfumeJaguar.github.io", githubBranch: "main", githubImageDir: "experiments/p5-media-lab/assets/images", imageExtensions: ["jpg","jpeg","png","webp","gif","avif"], imageSets: [{ id: "default", subdir: "" }], activeImageLimit: 20, initialLoadConcurrency: 3, rotationBatchSize: 5, rotationIntervalSec: 5, rotationLoadConcurrency: 1, rotationPolicy: "shuffle-bag" },
@@ -34,7 +34,7 @@ window.DODREI_CONFIG = {
       { id: "preset-composition", enabled: true, locked: true }, { id: "common-crush", enabled: false, locked: true }, { id: "touch-rupture", enabled: true, locked: true }, { id: "preset-feedback", enabled: true, locked: true }, { id: "swipe-feedback", enabled: true, locked: true }, { id: "vignette", enabled: true, locked: true }, { id: "waveform", enabled: true, locked: true }
     ]
   },
-  telemetry: { enabled: true, author: "Hoyeon Choi", maxEvents: 18, opacity: 0.56, secondaryOpacity: 0.30, faintOpacity: 0.16, fontFamily: "IBM Plex Mono", textColor: [190,215,196], fontSizeMobile: 9, fontSizeDesktop: 10, lineHeight: 1.28, marginMobile: 12, marginDesktop: 18, glitchOnMotion: true, glitchLabels: true, glitchIntervalMs: 260, glitchChance: 0.42, glitchLineChance: 0.24, lineJitterChance: 0.10, lineJitterPx: 1.6, driftPx: 1, driftIntervalMs: 7000 },
+  telemetry: { enabled: true, author: "Hoyeon Choi", maxEvents: 18, opacity: 0.52, secondaryOpacity: 0.28, faintOpacity: 0.14, fontFamily: "IBM Plex Mono", textColor: [214,214,210], fontSizeMobile: 9, fontSizeDesktop: 10, lineHeight: 1.28, marginMobile: 12, marginDesktop: 18, glitchOnMotion: true, glitchLabels: true, glitchIntervalMs: 260, glitchChance: 0.42, glitchLineChance: 0.24, lineJitterChance: 0.10, lineJitterPx: 1.6, driftPx: 1, driftIntervalMs: 7000 },
   control: { localDraftKey: "dodrei-control-draft-schema-1", importPolicy: "compatible-merge" }
 };
 window.P5LAB_CONFIG = window.DODREI_CONFIG;
