@@ -2,8 +2,8 @@
 
 DODREI is a mobile-first browser media-art experiment built with **p5.js / JavaScript** and hosted on GitHub Pages.
 
-Current baseline: **v0.10.1**  
-Current visual engine: **0.10.0**  
+Current baseline: **v0.10.3**  
+Current visual engine: **0.10.3**  
 Current config schema: **1**
 
 The repository path remains `experiments/p5-media-lab/` for continuity.
@@ -18,88 +18,79 @@ Interaction:
 - hold: high-contrast four-band rupture + stronger audio processing;
 - fast swipe while holding: recursive swipe feedback;
 - upper-left `›`: manually advance to the next enabled visual mode;
-- upper-left FPS number: cycle composition cadence through `15 -> 24 -> 30 -> 60`.
+- upper-left FPS number: cycle BASE VISUAL FPS `15 -> 24 -> 30 -> 60`;
+- upper-left `S1...S4`: cycle independent image cut speed.
 
 Automatic visual-mode advancement remains disabled by default.
 
-## v0.10.1 — runtime composition FPS button
+## v0.10.3 — independent cut speed
 
-A second small runtime control now sits directly below the mode-step button.
+v0.10.2 successfully made the BASE VISUAL FPS visible, but its image-choice `cutTick` was derived from the base-frame sample timestamp. That made image changes feel coupled to BASE FPS.
 
-```text
-[ › ]  next visual mode
-[30 ]  composition FPS
-```
-
-The FPS button cycles:
+v0.10.3 separates the clocks completely:
 
 ```text
-15 -> 24 -> 30 -> 60 -> 15 ...
+CUT CLOCK
+  wall-clock millis()
+  S1 320ms  slowest
+  S2 240ms  default
+  S3 170ms
+  S4 110ms  fastest
+
+BASE VISUAL CLOCK
+  15 / 24 / 30 / 60 fps
+  crop / layout / blend / LUMA state
+  sampled and held between base frames
+
+POST FX CLOCK
+  every available outer p5 render frame
+  touch rupture / recursive feedback / swipe / vignette / waveform
 ```
 
-It changes only `timing.compositionFps` at runtime. It does **not** lower the outer p5 render target and does not change audio playback speed/time. `js/visual-engine-v100.js` already reads `P5LAB_CONFIG.timing.compositionFps` dynamically, so no new engine layer is required for this UI.
+The visible image-choice tempo now uses `timing.cutIntervalMs`. The old `visual.photoCutMs = 90` remains for inherited glitch/rupture timing and compatibility; it no longer defines visible image cut speed in the active v0.10.3 base engine.
 
-The current value is shown on the button and each change emits telemetry such as:
+Runtime controls:
 
 ```text
-COMPOSITION FPS 24
+[ › ]  next mode
+[30 ]  BASE VISUAL FPS
+[S2 ]  CUT SPEED
 ```
 
-The control intercepts pointer/click propagation so tapping it should not trigger the canvas touch/rupture gesture.
-
-## v0.10.0 — temporal cadence
-
-DODREI separates **composition cadence** from the outer p5 render loop.
+Each cut-speed tap cycles:
 
 ```text
-outer render loop       target 60fps / actual device rate
-        │
-        ├── preset composition   sample-and-hold at 30fps default
-        │
-        └── post FX              every available render frame
+S1 -> S2 -> S3 -> S4 -> S1
 ```
 
-Default timing config:
+Changing cut speed forces an immediate base sample so the UI cannot appear to lag behind the engine state.
 
-```js
-timing: {
-  compositionFps: 30,
-  timeReferenceFps: 60,
-  maxDeltaMs: 100,
-}
-```
-
-Recommended composition tests:
+Telemetry exposes:
 
 ```text
-15 fps  strong stepped / sampled motion
+FPS         actual outer p5 render rate
+BASE_FPS    target / measured base refresh rate
+CUT_SPEED   level / milliseconds
+```
+
+## v0.10.2 — experimental base visual clock
+
+`compositionFps` is used as the BASE VISUAL CLOCK rather than merely a performance cap. It drives sampled crop/layout/blend/LUMA state for PHOTO and LUMA modes while post FX continue on the outer render loop.
+
+Recommended values:
+
+```text
+15 fps  strong stepped motion
 24 fps  film-like cadence
 30 fps  default compromise
-60 fps  reference / original continuous behavior
+60 fps  reference / smoother base state
 ```
 
-`compositionFps` does not change audio playback time. It controls how often the preset composition buffer is regenerated. Held frames remain visible between composition updates while touch, feedback, waveform, telemetry, and other post-processing can continue at the device's available render rate.
+The active v0.10.3 engine subclasses v0.10.2; earlier engine files are kept for rollback.
 
-If the device itself falls to 20–30fps, post FX cannot physically remain at 60fps. v0.10.0 instead keeps selected feedback behavior tied to **wall-clock time** using `deltaTime`.
+## v0.10.0 — time-normalized recursive feedback
 
-### Time-normalized feedback
-
-The following recursive feedback properties are normalized relative to a 60fps reference:
-
-- recursive scale / zoom;
-- previous-frame retention alpha;
-- black fade / decay;
-- swipe drift distance.
-
-The frame-time sample is capped at `100ms` so returning from a stalled/background tab does not create an extreme single-frame jump.
-
-The following remain intentionally frame-dependent:
-
-- source-image injection into feedback;
-- rupture/random corruption;
-- other glitch texture that benefits from real performance instability.
-
-This gives DODREI two temporal behaviors at once: stable real-time progression for feedback structure, and frame-sensitive texture for damage/glitch.
+Recursive feedback scale, retention, fade and swipe drift are normalized to wall-clock time using `deltaTime` with a capped stall interval. Source injection and random/glitch texture intentionally remain frame-sensitive.
 
 ## Current performance baseline
 
@@ -120,24 +111,25 @@ This gives DODREI two temporal behaviors at once: stable real-time progression f
 
 `visual.presets` is the mode playlist. Stable IDs identify presets independently of array position. Sequence order follows the array; disabled presets are skipped.
 
-```js
-visual.modeControl: {
-  strategy: "sequence", // sequence | shuffle
-  startIndex: 0,
-  loop: true,
-  autoAdvance: false,
-  manualButtonEnabled: true,
-}
-```
+Current 12 presets:
 
-The stored `app.modeDurationSec` value remains available for restoring timed mode changes later.
+- PHOTO_FEEDBACK_CROP
+- PHOTO_RAPID_CROP
+- PHOTO_RGB_TEAR
+- PHOTO_SHARD_SWAP
+- PHOTO_DOUBLE_BLEND
+- PHOTO_BLEND_CYCLE
+- PHOTO_FULL
+- LUMA_BLOCKS
+- LUMA_VOID
+- LUMA_MONO
+- LUMA_DITHER
+- LUMA_PULSE
 
 ## Visual pipeline
 
-Current fixed order:
-
 ```text
-preset composition     [30fps sample-and-hold by default]
+preset composition     [BASE VISUAL FPS]
   -> common crush      [OFF by default]
   -> touch rupture
   -> preset feedback
@@ -146,34 +138,36 @@ preset composition     [30fps sample-and-hold by default]
   -> waveform
 ```
 
-Pipeline stages have stable IDs and enable/disable state. Order remains locked because several stages share dependent buffers.
-
 ## Configuration / Control
 
-`config.js` is canonical runtime data.
+`config.js` is canonical runtime data. `config-schema.js` provides optional editor metadata. The Control page discovers additive timing fields with inferred controls even when schema metadata is not explicit.
 
-`config-schema.js` provides optional editor metadata. The Control page also discovers unknown/additive config groups and infers basic controls, so the `timing` group remains editable without changing the schema contract.
+Important timing values:
 
-Control page:
-
-`/experiments/p5-media-lab/control/`
-
-GitHub Pages cannot write repository files directly. Exported configs must still be committed separately.
+```js
+timing: {
+  compositionFps: 30,
+  cutSpeedLevel: "S2",
+  cutIntervalMs: 240,
+  timeReferenceFps: 60,
+  maxDeltaMs: 100,
+}
+```
 
 ## Important files
 
 - `config.js` — current runtime values;
-- `config-schema.js` — editor/validation metadata;
-- `control/` — config import/edit/export UI;
-- `js/media-manager.js` — archive, image sets, rolling resident pool;
-- `js/visual-engine-v070.js` — overflow-aware crop;
-- `js/visual-engine-v080.js` — config-driven mode/pipeline;
-- `js/visual-engine-v090.js` — manual mode + GPU rupture palette;
-- `js/visual-engine-v100.js` — composition cadence + delta-time feedback normalization;
-- `js/mode-control-ui.js` — mode-step + runtime composition-FPS buttons;
-- `sketch-v066.js` — outer 60fps-target orchestrator;
-- `PROJECT_STATE.md` — implementation authority/checkpoint.
+- `js/visual-engine-v100.js` — delta-time feedback normalization;
+- `js/visual-engine-v102.js` — sampled BASE VISUAL CLOCK;
+- `js/visual-engine-v103.js` — wall-clock CUT SPEED separation;
+- `js/mode-control-ui.js` — mode/FPS/cut runtime buttons;
+- `js/telemetry.js` — FPS/base/cut diagnostics;
+- `PROJECT_STATE.md` — implementation checkpoint.
 
-## Next visual experiment
+## Rollback
 
-A very mild GPU softness pass is being considered for a less digitally sharp texture. It is **not active yet**. Prefer a tiny shader-based softening pass over full-frame Canvas blur if this experiment proceeds.
+If the cut-speed experiment is wrong, remove the `visual-engine-v103.js` script load from `index.html`; v0.10.2 becomes active again. No inherited engine implementation was deleted.
+
+## Deferred visual experiment
+
+A very mild GPU softness pass is still under consideration. It is not active yet.

@@ -40,6 +40,8 @@ class P5LabTelemetry {
     const engine=snapshot.visual.engineVersion||window.P5LAB_VISUAL_ENGINE_VERSION||'BASE';
     const baseTarget=Number(snapshot.visual.baseFpsTarget||snapshot.visual.compositionFps||0);
     const baseActual=Number(snapshot.visual.baseFpsActual||0);
+    const cutLevel=String(snapshot.visual.cutSpeedLevel||P5LAB_CONFIG.timing?.cutSpeedLevel||'S2');
+    const cutMs=Number(snapshot.visual.cutIntervalMs||P5LAB_CONFIG.timing?.cutIntervalMs||0);
 
     const leftLines=[
       `${P5LAB_CONFIG.app.title}   V${P5LAB_CONFIG.app.version}`,
@@ -60,6 +62,7 @@ class P5LabTelemetry {
       `TIME          ${P5LabUtils.formatTime(millis()/1000)}`,
       `FPS           ${snapshot.system.fps.toFixed(1)}`,
       `BASE_FPS      ${baseTarget ? `${baseTarget.toFixed(0)} / ${baseActual.toFixed(1)}` : 'N/A'}`,
+      `CUT_SPEED     ${cutMs ? `${cutLevel} / ${cutMs.toFixed(0)}MS` : 'N/A'}`,
       `VIEWPORT      ${width} x ${height}`,
       `BUFFER        ${snapshot.system.bufferW} x ${snapshot.system.bufferH}`,
     ];

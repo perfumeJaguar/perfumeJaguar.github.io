@@ -48,7 +48,8 @@ canvas {
 
 /* Small visible controls, separate from the canvas gesture surface. */
 #mode-next-button,
-#composition-fps-button {
+#composition-fps-button,
+#cut-speed-button {
   position: fixed;
   z-index: 900;
   left: calc(6px + var(--safe-left));
@@ -78,10 +79,19 @@ canvas {
   letter-spacing: -.02em;
 }
 
+#cut-speed-button {
+  top: calc(66px + var(--safe-top));
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: -.02em;
+}
+
 #mode-next-button:hover,
 #mode-next-button:focus-visible,
 #composition-fps-button:hover,
-#composition-fps-button:focus-visible {
+#composition-fps-button:focus-visible,
+#cut-speed-button:hover,
+#cut-speed-button:focus-visible {
   color: rgba(255,255,255,.9);
   border-color: rgba(255,255,255,.48);
   background: rgba(0,0,0,.5);
@@ -89,12 +99,14 @@ canvas {
 }
 
 #mode-next-button:active,
-#composition-fps-button:active {
+#composition-fps-button:active,
+#cut-speed-button:active {
   transform: translateY(1px);
 }
 
 #mode-next-button[hidden],
-#composition-fps-button[hidden] {
+#composition-fps-button[hidden],
+#cut-speed-button[hidden] {
   display: none;
 }
 

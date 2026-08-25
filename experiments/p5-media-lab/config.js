@@ -7,13 +7,13 @@ window.DODREI_CONFIG = {
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 6,
+    configRevision: 7,
     generatedBy: "hand-or-control",
   },
 
   app: {
     title: "DODREI",
-    version: "0.10.2",
+    version: "0.10.3",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -21,10 +21,14 @@ window.DODREI_CONFIG = {
     imageSwitchSec: 0.10,
   },
 
-  // Experimental BASE VISUAL CLOCK. The runtime button cycles 15 -> 24 -> 30 -> 60.
-  // It does NOT cap the outer p5 render loop or post-FX cadence.
+  // Three independent clocks:
+  // - compositionFps: BASE VISUAL CLOCK, runtime button 15 -> 24 -> 30 -> 60.
+  // - cutIntervalMs: image-choice/cut tempo, runtime button S1 -> S2 -> S3 -> S4.
+  // - outer p5 render / post FX: app.targetFps, currently 60 target.
   timing: {
     compositionFps: 30,
+    cutSpeedLevel: "S2",
+    cutIntervalMs: 240,
     timeReferenceFps: 60,
     maxDeltaMs: 100,
   },
@@ -99,6 +103,9 @@ window.DODREI_CONFIG = {
 
     mosaicColsMobile: 18,
     mosaicColsDesktop: 32,
+
+    // Legacy/shared FX tick retained for inherited glitch/rupture behavior.
+    // Visible image-choice tempo now uses timing.cutIntervalMs instead.
     photoCutMs: 90,
     rgbTearMaxPx: 48,
     vignetteStrength: 0.34,
