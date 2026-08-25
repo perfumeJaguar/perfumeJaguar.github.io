@@ -1,18 +1,19 @@
-/** DODREI — tiny runtime controls: mode step + base FPS + cut speed. */
+/** DODREI — tiny runtime controls: mode step + base FPS + visual speed. */
 window.addEventListener("DOMContentLoaded", () => {
   const modeButton = document.getElementById("mode-next-button");
   const fpsButton = document.getElementById("composition-fps-button");
-  const cutButton = document.getElementById("cut-speed-button");
+  // Keep the existing DOM id for compatibility; this is now VISUAL SPEED.
+  const speedButton = document.getElementById("cut-speed-button");
   const config = window.DODREI_CONFIG || window.P5LAB_CONFIG || {};
   const modeControl = config.visual?.modeControl || {};
   const timing = config.timing || (config.timing = {});
 
   const FPS_OPTIONS = [15, 24, 30, 60];
-  const CUT_OPTIONS = [
-    { level: "S1", ms: 320 },
-    { level: "S2", ms: 240 },
-    { level: "S3", ms: 170 },
-    { level: "S4", ms: 110 },
+  const SPEED_OPTIONS = [
+    { level: "S1", multiplier: 0.50 },
+    { level: "S2", multiplier: 0.75 },
+    { level: "S3", multiplier: 1.00 },
+    { level: "S4", multiplier: 1.50 },
   ];
 
   const stopPointer = (event) => event.stopPropagation();
@@ -73,56 +74,57 @@ window.addEventListener("DOMContentLoaded", () => {
     updateFpsButton();
   }
 
-  const currentCut = () => {
-    const level = String(timing.cutSpeedLevel || "").toUpperCase();
-    const exact = CUT_OPTIONS.find((option) => option.level === level);
+  const currentSpeed = () => {
+    const level = String(timing.visualSpeedLevel || timing.cutSpeedLevel || "").toUpperCase();
+    const exact = SPEED_OPTIONS.find((option) => option.level === level);
     if (exact) return exact;
 
-    const ms = Number(timing.cutIntervalMs);
-    if (Number.isFinite(ms) && ms > 0) {
-      return CUT_OPTIONS.reduce((best, option) =>
-        Math.abs(option.ms - ms) < Math.abs(best.ms - ms) ? option : best,
-      CUT_OPTIONS[1]);
+    const multiplier = Number(timing.visualSpeedMultiplier);
+    if (Number.isFinite(multiplier) && multiplier > 0) {
+      return SPEED_OPTIONS.reduce((best, option) =>
+        Math.abs(option.multiplier - multiplier) < Math.abs(best.multiplier - multiplier) ? option : best,
+      SPEED_OPTIONS[1]);
     }
-    return CUT_OPTIONS[1];
+    return SPEED_OPTIONS[1];
   };
 
-  const updateCutButton = () => {
-    if (!cutButton) return;
-    const option = currentCut();
-    cutButton.textContent = option.level;
-    cutButton.setAttribute(
+  const updateSpeedButton = () => {
+    if (!speedButton) return;
+    const option = currentSpeed();
+    speedButton.textContent = option.level;
+    speedButton.setAttribute(
       "aria-label",
-      `Cut speed ${option.level}, ${option.ms} milliseconds. Click to cycle.`
+      `Visual speed ${option.level}, ${option.multiplier.toFixed(2)} times. Click to cycle.`
     );
-    cutButton.title = `Cut speed ${option.level}: ${option.ms} ms`;
+    speedButton.title = `Visual speed ${option.level}: ${option.multiplier.toFixed(2)}x`;
   };
 
-  const nextCut = (current) => {
-    const index = CUT_OPTIONS.findIndex((option) => option.level === current.level);
-    return CUT_OPTIONS[(index >= 0 ? index + 1 : 1) % CUT_OPTIONS.length];
+  const nextSpeed = (current) => {
+    const index = SPEED_OPTIONS.findIndex((option) => option.level === current.level);
+    return SPEED_OPTIONS[(index >= 0 ? index + 1 : 1) % SPEED_OPTIONS.length];
   };
 
-  if (cutButton) {
-    cutButton.addEventListener("pointerdown", stopPointer);
-    cutButton.addEventListener("click", (event) => {
+  if (speedButton) {
+    speedButton.addEventListener("pointerdown", stopPointer);
+    speedButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
 
-      const next = nextCut(currentCut());
+      const next = nextSpeed(currentSpeed());
       const engine = window.DODREI_VISUAL_ENGINE;
 
-      if (engine && typeof engine.setCutSpeed === "function") {
-        engine.setCutSpeed(next.level, next.ms);
+      if (engine && typeof engine.setVisualSpeed === "function") {
+        engine.setVisualSpeed(next.level, next.multiplier);
       } else {
+        timing.visualSpeedLevel = next.level;
+        timing.visualSpeedMultiplier = next.multiplier;
         timing.cutSpeedLevel = next.level;
-        timing.cutIntervalMs = next.ms;
         if (engine && engine.telemetry && typeof engine.telemetry.event === "function") {
-          engine.telemetry.event(`CUT SPEED ${next.level} ${next.ms}MS`);
+          engine.telemetry.event(`VISUAL SPEED ${next.level} ${next.multiplier.toFixed(2)}X`);
         }
       }
-      updateCutButton();
+      updateSpeedButton();
     });
-    updateCutButton();
+    updateSpeedButton();
   }
 });
