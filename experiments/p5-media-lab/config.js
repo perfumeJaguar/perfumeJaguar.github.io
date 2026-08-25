@@ -15,36 +15,32 @@
  */
 
 window.DODREI_CONFIG = {
-  // ---------------------------------------------------------------------------
-  // META — identity and compatibility
-  // ---------------------------------------------------------------------------
   meta: {
     project: "DODREI",
     schemaVersion: 1,
-    configRevision: 1,
+    configRevision: 2,
     generatedBy: "hand-or-control",
   },
 
-  // ---------------------------------------------------------------------------
-  // APP — global runtime and mode timing
-  // ---------------------------------------------------------------------------
   app: {
     title: "DODREI",
-    version: "0.8.0",
+    version: "0.9.0",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
+
+    // Retained for later automatic mode playback. Ignored while
+    // visual.modeControl.autoAdvance is false.
     modeDurationSec: 11,
     imageSwitchSec: 0.10,
   },
 
-  // ---------------------------------------------------------------------------
-  // RENDER — viewport-independent performance limits
-  // ---------------------------------------------------------------------------
   render: {
     pixelDensity: 1,
     background: 0,
-    maxBufferLongEdgeMobile: 900,
+
+    // v0.9: mobile main processing buffer reduced from 900 -> 720.
+    maxBufferLongEdgeMobile: 720,
     maxBufferLongEdgeDesktop: 1280,
     analysisWidthMobile: 128,
     analysisWidthDesktop: 180,
@@ -52,9 +48,6 @@ window.DODREI_CONFIG = {
     analysisPixelStep: 2,
   },
 
-  // ---------------------------------------------------------------------------
-  // MEDIA — archive discovery, image sets, decoded working set, rotation policy
-  // ---------------------------------------------------------------------------
   media: {
     videosEnabled: false,
     autoDiscoverImages: true,
@@ -64,8 +57,6 @@ window.DODREI_CONFIG = {
     githubImageDir: "experiments/p5-media-lab/assets/images",
     imageExtensions: ["jpg", "jpeg", "png", "webp", "gif", "avif"],
 
-    // Stable IDs let future configs merge image sets even if order changes.
-    // Additional sets can point to subfolders such as personA / personB.
     imageSets: [
       { id: "default", subdir: "" },
     ],
@@ -78,17 +69,11 @@ window.DODREI_CONFIG = {
     rotationPolicy: "shuffle-bag",
   },
 
-  // ---------------------------------------------------------------------------
-  // INTERACTION — normalized mouse / one-finger touch behavior
-  // ---------------------------------------------------------------------------
   interaction: {
     smoothing: 0.14,
     pressBoost: 1.35,
   },
 
-  // ---------------------------------------------------------------------------
-  // AUDIO — transport, analysis, and interactive wet FX
-  // ---------------------------------------------------------------------------
   audio: {
     enabled: true,
     masterVolume: 0.82,
@@ -110,13 +95,9 @@ window.DODREI_CONFIG = {
     maxDistortion: 0.88,
   },
 
-  // ---------------------------------------------------------------------------
-  // VISUAL — crop, feedback, rupture, mode playlist, fixed stage pipeline
-  // ---------------------------------------------------------------------------
   visual: {
     enabled: true,
 
-    // Every source draw receives its own crop. Cover-fit overflow is included.
     sourceCropMinZoom: 1.0,
     sourceCropMaxZoom: 2.5,
     sourceCropTouchBoost: 0.0,
@@ -124,7 +105,6 @@ window.DODREI_CONFIG = {
     sourceCropOverflowPan: 1.0,
     touchTransitionSlowdown: 0.28,
 
-    // Recursive feedback.
     feedbackScale: 0.994,
     feedbackAlpha: 154,
     feedbackResolutionScaleMobile: 0.52,
@@ -136,12 +116,10 @@ window.DODREI_CONFIG = {
     rgbTearMaxPx: 48,
     vignetteStrength: 0.34,
 
-    // Common PHOTO_CRUSH.
     crushContrast: 1.32,
     crushPosterizeLevels: 6,
     crushIntruderAlpha: 28,
 
-    // Touch rupture.
     touchRuptureContrast: 3.2,
     touchRuptureBands: 13,
     touchRuptureResolutionScaleMobile: 0.50,
@@ -149,7 +127,8 @@ window.DODREI_CONFIG = {
     touchRuptureFrameSkipMobile: 2,
     touchRuptureFrameSkipDesktop: 1,
 
-    // Four-band rupture palette.
+    // v0.9 applies this palette with a GPU filter shader when supported.
+    // The engine falls back to the former CPU pixel loop if shader setup fails.
     touchPalette: {
       thresholds: [64, 128, 192],
       colors: [
@@ -160,21 +139,22 @@ window.DODREI_CONFIG = {
       ],
     },
 
-    // Swipe feedback starts only above normalized swipe speed 0.30.
     swipeFeedbackThreshold: 0.30,
     swipeFeedbackScaleMin: 0.985,
     swipeFeedbackScaleMax: 1.012,
     swipeFeedbackAlphaMin: 42,
     swipeFeedbackAlphaMax: 178,
 
-    // How the mode playlist advances.
+    // Mode order still lives in `presets`. v0.9 disables timed advancement;
+    // the small upper-left button advances using this same policy.
     modeControl: {
       strategy: "sequence", // sequence | shuffle
       startIndex: 0,
       loop: true,
+      autoAdvance: false,
+      manualButtonEnabled: true,
     },
 
-    // Stable IDs are compatibility anchors. Array order is playback order.
     presets: [
       { id: "photo-feedback-crop", name: "PHOTO_FEEDBACK_CROP", enabled: true, photoFeedback: true, feedback: true },
       { id: "photo-rapid-crop", name: "PHOTO_RAPID_CROP", enabled: true, photoRapidCrop: true },
@@ -190,9 +170,6 @@ window.DODREI_CONFIG = {
       { id: "luma-pulse", name: "LUMA_PULSE", enabled: true, mosaic: "pulse" },
     ],
 
-    // Current engine supports stage enable/disable. Order is intentionally locked
-    // because these stages have dependencies. Future engines may unlock/reorder
-    // compatible stages without changing the config representation.
     pipeline: [
       { id: "preset-composition", enabled: true, locked: true },
       { id: "common-crush", enabled: true, locked: true },
@@ -204,9 +181,6 @@ window.DODREI_CONFIG = {
     ],
   },
 
-  // ---------------------------------------------------------------------------
-  // TELEMETRY — foreground system/status layer
-  // ---------------------------------------------------------------------------
   telemetry: {
     enabled: true,
     author: "Hoyeon Choi",
@@ -223,14 +197,10 @@ window.DODREI_CONFIG = {
     glitchLabels: true,
   },
 
-  // ---------------------------------------------------------------------------
-  // CONTROL — editor-only behavior; ignored by the artwork runtime
-  // ---------------------------------------------------------------------------
   control: {
     localDraftKey: "dodrei-control-draft-schema-1",
     importPolicy: "compatible-merge",
   },
 };
 
-// Compatibility bridge: current engine modules still read P5LAB_CONFIG.
 window.P5LAB_CONFIG = window.DODREI_CONFIG;

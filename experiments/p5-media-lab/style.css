@@ -25,7 +25,6 @@ body {
 }
 
 body {
-  /* 100dvh follows the visible mobile viewport as browser chrome changes size. */
   min-height: 100dvh;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
@@ -45,6 +44,40 @@ canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
+}
+
+/* Small visible control, larger hit target for touch reliability. */
+#mode-next-button {
+  position: fixed;
+  z-index: 900;
+  top: calc(6px + var(--safe-top));
+  left: calc(6px + var(--safe-left));
+  width: 30px;
+  height: 24px;
+  padding: 0 0 2px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 2px;
+  background: rgba(0,0,0,.24);
+  color: rgba(255,255,255,.48);
+  font: 15px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#mode-next-button:hover,
+#mode-next-button:focus-visible {
+  color: rgba(255,255,255,.9);
+  border-color: rgba(255,255,255,.48);
+  background: rgba(0,0,0,.5);
+  outline: none;
+}
+
+#mode-next-button:active {
+  transform: translateY(1px);
+}
+
+#mode-next-button[hidden] {
+  display: none;
 }
 
 #start-screen {
