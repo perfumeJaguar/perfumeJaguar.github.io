@@ -1,8 +1,8 @@
 # PROJECT_STATE — DODREI
 
-Last updated: 2026-08-26 01:57 KST  
-Current artwork/runtime version: `1.0.3`  
-Current visual engine version: `1.0.3`  
+Last updated: 2026-08-26 02:12 KST  
+Current artwork/runtime version: `1.0.4`  
+Current visual engine version: `1.0.4`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
 Path: `experiments/p5-media-lab/`
@@ -13,24 +13,50 @@ PHOTO ONLY. Automatic mode advance is OFF.
 
 ```text
 BASE_FPS        24
-VIS_SPEED       S2 / 0.50x
+VIS_SPEED       S1 / 0.25x
+START_MODE      PHOTO_DOUBLE_BLEND
 CROP_MIN        1.0x
-CROP_MAX        3.0x
+CROP_MAX        5.0x
 POST            ON
 POST_CHAIN      HC -> LS -> BL -> DK
+TOUCH_PLAYBACK  0.50x while held
 ```
 
-`BW / GS / CR / VG` start OFF. BL remains `1.20px`.
+These defaults are exactly equivalent to:
+
+```text
+?fps=24&speed=S1&post=1&fx=HC,LS,BL,DK&mode=photo-double-blend&crop=10-50
+```
+
+If URL parameters are absent, the canonical config values above are used. Valid URL parameters override only the fields they provide; invalid values are ignored.
+
+## v1.0.4 — touch playback timing
+
+Implementation: `js/visual-engine-v1004.js`, subclassing `DodreiVisualEngineV1003`.
+
+While pointer/touch is held:
+
+```text
+virtual visual timeline multiplier = 0.50
+```
+
+This means image cuts and crop/layout evolution both run at half their normal visual speed during the hold. The slowdown is applied to the shared virtual visual clock rather than only to the cut interval.
+
+Not slowed by this change:
+
+```text
+outer render FPS
+touch rupture rendering
+swipe feedback rendering
+POST touch-bypass logic
+audio FX / audio clock
+```
+
+The older cut-only `touchTransitionSlowdown` remains in config for compatibility but is now set to `0.0`, preventing an additional slowdown from stacking on top of the new exact 50% visual playback multiplier.
 
 ## v1.0.3 — independent scene selection
 
-The visible repetition problem was traced to image layers deriving their choices from related arithmetic seed sequences (`cutTick * constant + offset`). The scene renderer now uses independent per-slot random choices.
-
-Implementation: `js/visual-engine-v1003.js`, subclassing `DodreiVisualEngineV1000`.
-
-### Required semantics
-
-Scene image selection is **with replacement**.
+Visible scene image selection remains **independent per-slot random selection with replacement**.
 
 ```text
 recent-image ban        NONE
@@ -40,9 +66,11 @@ immediate repeat        ALLOWED
 long non-repeat run     ALLOWED
 ```
 
-The goal is not to make the sequence look evenly distributed. The goal is to remove visible mechanical correlation between simultaneous image layers while preserving genuine random outcomes.
+The intent is not even distribution. Repeats remain legitimate random outcomes; only artificial correlation between simultaneous image layers was removed.
 
-Each logical image slot has its own held selection, for example:
+Each logical slot keeps its selected image through one image cut while crop/layout continues to refresh on the faster visual-state clock.
+
+Examples of independent slots:
 
 ```text
 PHOTO_RAPID_CROP     primary / secondary
@@ -53,25 +81,17 @@ PHOTO_SHARD_SWAP     base / individual band slots
 PHOTO_FULL           primary
 ```
 
-A slot draws a new random resident image when the image `cutTick` changes. During that cut the selected image is held, while crop/layout can still change on the faster visual-state clock. Therefore the existing rhythm — one source image shown through several crop/layout variations before the next image cut — is preserved.
-
-### Resident working set remains separate
-
-`js/media-manager.js` is unchanged.
-
-The full archive still feeds a bounded decoded working set (normally 20 resident images). The media manager's archive-level shuffle-bag only decides which files become resident; it does **not** control scene order. The new scene-order logic randomly chooses from the current resident pool with replacement.
+The media manager remains separate: the archive-level shuffle-bag only determines which files are resident in the bounded working pool. It does not control visible scene order.
 
 ## Crop range semantics
 
-`sourceCropMinZoom` and `sourceCropMaxZoom` now represent an actual random zoom range.
-
-At each visual-state refresh, zoom is sampled inside that range. Mode-specific intensity values no longer multiply the sampled zoom beyond max and then clamp it. Instead they bias the distribution inside the legal range, preventing many states from piling up at exactly `maxZoom`.
-
-Current default:
+`sourceCropMinZoom` and `sourceCropMaxZoom` define an actual random zoom range. Current default:
 
 ```text
-1.0x .. 3.0x
+1.0x .. 5.0x
 ```
+
+At each visual-state refresh the engine samples a zoom inside the legal range. Mode-specific crop intensity biases the distribution within that range rather than multiplying past max and collapsing many samples onto the maximum clamp.
 
 ## URL preset contract
 
@@ -86,19 +106,19 @@ mode=<preset id | internal preset name | displayed telemetry alias>
 crop=<min-max>
 ```
 
-Preferred crop notation:
+Crop examples:
 
 ```text
-crop=10-30  -> 1.0x .. 3.0x
+crop=10-50  -> 1.0x .. 5.0x
 crop=12-35  -> 1.2x .. 3.5x
 crop=15-25  -> 1.5x .. 2.5x
 ```
 
-`crop=12_35` is accepted as an input alias. Share links always serialize the hyphen form. Existing single-value links remain compatible: `crop=30` keeps the current minimum and sets maximum to `3.0x`.
+`crop=12_35` is accepted as an input alias; share links emit the hyphen form. A legacy single value such as `crop=30` keeps the current minimum and sets max to `3.0x`.
 
-`SHR` serializes current mode, FPS, speed, POST master, ordered FX chain, and current crop min/max.
+`SHR` serializes current mode, FPS, speed, POST master, ordered FX chain, and crop min/max range.
 
-## Existing v1 POST / touch behavior
+## Existing POST / touch semantics
 
 ```text
 POST_EFFECTIVE = POST_MASTER_ENABLED && !TOUCH_RUPTURE_ACTIVE
@@ -119,7 +139,7 @@ strength  2.00
 
 ## Typography / telemetry
 
-Runtime text uses IBM Plex Mono. Canvas telemetry is explicitly rendered with the webfont through `js/telemetry-v102.js`.
+Runtime text uses IBM Plex Mono. Canvas telemetry is rendered through `js/telemetry-v102.js`.
 
 ```text
 text RGB         214 / 214 / 210
@@ -128,7 +148,7 @@ secondary alpha  0.28
 faint alpha      0.14
 ```
 
-The old green cast is removed. Existing transient character corruption, small line jitter, and slow drift remain.
+Existing transient character corruption, small line jitter, and slow drift remain.
 
 ## Active mode order
 
@@ -136,7 +156,7 @@ The old green cast is removed. Existing transient character corruption, small li
 01 PHOTO_FEEDBACK_CROP
 02 PHOTO_RAPID_CROP
 03 PHOTO_SHARD_SWAP
-04 PHOTO_DOUBLE_BLEND
+04 PHOTO_DOUBLE_BLEND   <- current default start mode
 05 PHOTO_BLEND_CYCLE
 06 PHOTO_FULL
 ```
@@ -159,7 +179,8 @@ RGB tear and all LUMA/mosaic modes remain removed/deferred from the active seque
 ```text
 outer target fps         60
 startup base fps         24
-startup visual speed     S2 / 0.50x
+startup visual speed     S1 / 0.25x
+touch visual speed       0.50x of current visual speed
 mobile main buffer       720 long edge
 desktop main buffer      1280 long edge
 active image pool        20
@@ -168,14 +189,15 @@ mobile rupture scale     0.50
 mobile rupture skip      every second rendered frame
 ```
 
-The v1.0.3 scene-selection change is negligible in graphics cost: each slot stores one image reference and performs a random choice only when its cut changes. Crop changes are arithmetic only. BL remains the relatively expensive default POST stage.
+The v1.0.4 timing change adds only a multiplier to the existing virtual clock and should have negligible performance cost.
 
 ## Important files
 
-- `config.js` — v1.0.3 defaults and selection policy marker;
+- `config.js` — v1.0.4 canonical defaults;
 - `js/url-preset.js` — validated share-link overrides including crop ranges;
-- `js/visual-engine-v1000.js` — v1 POST master/blur/touch behavior;
+- `js/visual-engine-v1000.js` — POST master/blur/touch rupture behavior;
 - `js/visual-engine-v1003.js` — independent with-replacement scene selection + bounded crop randomization;
+- `js/visual-engine-v1004.js` — 50% visual playback while touch is held;
 - `js/media-manager.js` — rolling resident image pool / archive shuffle-bag;
 - `js/telemetry-v107.js` — pseudo-random text corruption;
 - `js/telemetry-v102.js` — IBM Plex Mono/off-gray canvas renderer;
@@ -186,11 +208,12 @@ The v1.0.3 scene-selection change is negligible in graphics cost: each slot stor
 
 Current `index.html` remains the test/control page. A later public page should hide/remove controls while keeping the same runtime and `js/url-preset.js` contract.
 
-## Checkpoint — v1.0.3
+## Checkpoint — v1.0.4
 
-1. Removed correlated arithmetic image-choice sequences from active scene layers.
-2. Added independent per-slot random selection **with replacement**.
-3. Deliberately did not add recent-image blocking, scene shuffle bags, or duplicate suppression.
-4. Preserved the current image-cut vs faster crop/layout-state rhythm.
-5. Changed crop zoom to stay distributed inside configured min/max instead of accumulating at the maximum clamp.
-6. Expanded URL crop syntax to explicit ranges such as `crop=12-35`; legacy `crop=30` remains valid.
+1. Default visual speed changed from `S2 / 0.50x` to `S1 / 0.25x`.
+2. Default start mode changed to `PHOTO_DOUBLE_BLEND`.
+3. Default crop range changed to `1.0x .. 5.0x` (`crop=10-50`).
+4. Default POST state remains `HC -> LS -> BL -> DK`, master ON.
+5. Added exact `0.50x` virtual visual playback while touch/pointer is held.
+6. Removed stacked cut-only slowdown by setting `touchTransitionSlowdown` to `0.0`.
+7. v1.0.3 independent with-replacement scene-selection behavior remains unchanged.
