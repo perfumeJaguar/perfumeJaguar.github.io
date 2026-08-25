@@ -50,6 +50,7 @@ canvas {
 #mode-next-button,
 #composition-fps-button,
 #cut-speed-button,
+#post-fx-master-button,
 .post-common-fx-button {
   position: fixed;
   z-index: 900;
@@ -87,14 +88,16 @@ canvas {
   letter-spacing: -.02em;
 }
 
-/* Small gap separates transport/timing from POST COMMON FX. */
-#post-fx-bw-button        { top: calc(102px + var(--safe-top)); }
-#post-fx-gray-button      { top: calc(132px + var(--safe-top)); }
-#post-fx-low-sat-button   { top: calc(162px + var(--safe-top)); }
-#post-fx-crush-button     { top: calc(192px + var(--safe-top)); }
-#post-fx-contrast-button  { top: calc(222px + var(--safe-top)); }
-#post-fx-darken-button    { top: calc(252px + var(--safe-top)); }
-#post-fx-vignette-button  { top: calc(282px + var(--safe-top)); }
+/* POST is a non-destructive master bypass. Individual states/order are preserved. */
+#post-fx-master-button    { top: calc(102px + var(--safe-top)); font-size: 7px; letter-spacing: -.05em; }
+#post-fx-bw-button        { top: calc(132px + var(--safe-top)); }
+#post-fx-gray-button      { top: calc(162px + var(--safe-top)); }
+#post-fx-low-sat-button   { top: calc(192px + var(--safe-top)); }
+#post-fx-blur-button      { top: calc(222px + var(--safe-top)); }
+#post-fx-crush-button     { top: calc(252px + var(--safe-top)); }
+#post-fx-contrast-button  { top: calc(282px + var(--safe-top)); }
+#post-fx-darken-button    { top: calc(312px + var(--safe-top)); }
+#post-fx-vignette-button  { top: calc(342px + var(--safe-top)); }
 
 .post-common-fx-button {
   font-size: 9px;
@@ -108,6 +111,8 @@ canvas {
 #composition-fps-button:focus-visible,
 #cut-speed-button:hover,
 #cut-speed-button:focus-visible,
+#post-fx-master-button:hover,
+#post-fx-master-button:focus-visible,
 .post-common-fx-button:hover,
 .post-common-fx-button:focus-visible {
   color: rgba(255,255,255,.9);
@@ -116,22 +121,33 @@ canvas {
   outline: none;
 }
 
+#post-fx-master-button[aria-pressed="true"],
 .post-common-fx-button[aria-pressed="true"] {
   color: rgba(255,255,255,.98);
   border-color: rgba(255,255,255,.72);
   background: rgba(255,255,255,.18);
 }
 
+.post-common-fx-button:disabled {
+  color: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.10);
+  background: rgba(0,0,0,.16);
+  cursor: default;
+  opacity: .58;
+}
+
 #mode-next-button:active,
 #composition-fps-button:active,
 #cut-speed-button:active,
-.post-common-fx-button:active {
+#post-fx-master-button:active,
+.post-common-fx-button:not(:disabled):active {
   transform: translateY(1px);
 }
 
 #mode-next-button[hidden],
 #composition-fps-button[hidden],
 #cut-speed-button[hidden],
+#post-fx-master-button[hidden],
 .post-common-fx-button[hidden] {
   display: none;
 }
