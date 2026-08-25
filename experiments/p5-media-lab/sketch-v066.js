@@ -17,9 +17,6 @@ async function setup(){
     audioEngine=new P5LabAudioEngine(P5LAB_ASSETS.audio,P5LAB_CONFIG.audio,telemetry);
     window.DODREI_AUDIO_ENGINE=audioEngine;
 
-    // IMPORTANT: instantiate the explicitly registered engine constructor.
-    // Do not fall back to window.P5LabVisualEngine; top-level class bindings and
-    // window properties are different namespaces in classic browser scripts.
     const VisualEngineClass=window.P5LAB_VISUAL_ENGINE_CLASS||P5LabVisualEngine;
     visualEngine=new VisualEngineClass(P5LAB_CONFIG.visual,telemetry);
 
@@ -69,6 +66,7 @@ function bindStartScreen(){
 window.DODREI_SET_PAUSED=(paused)=>{
   const next=!!paused;
   window.DODREI_RUNTIME_PAUSED=next;
+  try{if(audioEngine&&typeof audioEngine.setPlaybackPaused==='function')audioEngine.setPlaybackPaused(next);}catch(_){}
   try{
     if(next){
       if(typeof noLoop==='function')noLoop();
