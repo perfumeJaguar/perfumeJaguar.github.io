@@ -10,7 +10,7 @@
  *   post=0|1
  *   fx=HC,LS,BL,DK   (ordered; NONE is also valid)
  *   mode=<preset id | internal name | displayed telemetry alias>
- *   crop=12-35       (1.2x..3.5x explicit range)
+ *   crop=10-90       (1.0x..9.0x explicit range)
  *   crop=30          (legacy shorthand: keep min, set max to 3.0x)
  */
 (() => {
@@ -60,8 +60,8 @@
   const parseZoomToken = (raw) => {
     const n = Number(String(raw ?? "").trim());
     if (!Number.isFinite(n)) return null;
-    if (n >= 10 && n <= 50) return n / 10;
-    if (n >= 1 && n <= 5) return n;
+    if (n >= 10 && n <= 90) return n / 10;
+    if (n >= 1 && n <= 9) return n;
     return null;
   };
 
@@ -86,7 +86,7 @@
 
   const formatZoomToken = (value) => {
     const n = Number(value);
-    if (!Number.isFinite(n) || n < 1 || n > 5) return null;
+    if (!Number.isFinite(n) || n < 1 || n > 9) return null;
     const tenths = n * 10;
     if (Math.abs(tenths - Math.round(tenths)) < 0.0001) return String(Math.round(tenths));
     return String(Number(n.toFixed(2)));
@@ -243,7 +243,7 @@
       fps: FPS_VALUES.slice(),
       speed: Object.keys(SPEED_VALUES),
       fx: Object.keys(FX_BY_TOKEN),
-      crop: "12-35 => 1.2x..3.5x; 30 keeps current min and sets max 3.0x; underscore also accepted",
+      crop: "10-90 => 1.0x..9.0x; 30 keeps current min and sets max 3.0x; underscore also accepted",
       mode: "preset id, internal preset name, or displayed telemetry alias",
     },
   };
