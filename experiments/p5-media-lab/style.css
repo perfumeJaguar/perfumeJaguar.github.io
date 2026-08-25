@@ -5,6 +5,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --dodrei-ui: 190, 215, 196;
+  --dodrei-start-ink: 196, 192, 188;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -18,6 +19,8 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 #cut-speed-button,
 #post-fx-master-button,
 #share-settings-button,
+#runtime-pause-button,
+#runtime-mute-button,
 .post-common-fx-button {
   position: fixed;
   z-index: 900;
@@ -47,6 +50,8 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 #post-fx-contrast-button { top: calc(282px + var(--safe-top)); }
 #post-fx-darken-button { top: calc(312px + var(--safe-top)); }
 #post-fx-vignette-button { top: calc(342px + var(--safe-top)); }
+#runtime-pause-button { bottom: calc(66px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
+#runtime-mute-button { bottom: calc(36px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
 #share-settings-button { bottom: calc(6px + var(--safe-bottom)); font-size: 8px; letter-spacing: -.04em; }
 
 .post-common-fx-button { font-size: 9px; line-height: 1; letter-spacing: -.03em; }
@@ -61,6 +66,10 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 #post-fx-master-button:focus-visible,
 #share-settings-button:hover,
 #share-settings-button:focus-visible,
+#runtime-pause-button:hover,
+#runtime-pause-button:focus-visible,
+#runtime-mute-button:hover,
+#runtime-mute-button:focus-visible,
 .post-common-fx-button:hover,
 .post-common-fx-button:focus-visible {
   color: rgba(var(--dodrei-ui), .90);
@@ -70,6 +79,8 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 }
 
 #post-fx-master-button[aria-pressed="true"],
+#runtime-pause-button[aria-pressed="true"],
+#runtime-mute-button[aria-pressed="true"],
 .post-common-fx-button[aria-pressed="true"] {
   color: rgba(var(--dodrei-ui), .96);
   border-color: rgba(var(--dodrei-ui), .68);
@@ -77,8 +88,8 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 }
 
 .post-common-fx-button:disabled { color: rgba(var(--dodrei-ui), .14); border-color: rgba(var(--dodrei-ui), .08); background: rgba(0,0,0,.16); cursor: default; opacity: .56; }
-#mode-next-button:active, #composition-fps-button:active, #cut-speed-button:active, #post-fx-master-button:active, #share-settings-button:active, .post-common-fx-button:not(:disabled):active { transform: translateY(1px); }
-#mode-next-button[hidden], #composition-fps-button[hidden], #cut-speed-button[hidden], #post-fx-master-button[hidden], #share-settings-button[hidden], .post-common-fx-button[hidden] { display: none; }
+#mode-next-button:active, #composition-fps-button:active, #cut-speed-button:active, #post-fx-master-button:active, #share-settings-button:active, #runtime-pause-button:active, #runtime-mute-button:active, .post-common-fx-button:not(:disabled):active { transform: translateY(1px); }
+#mode-next-button[hidden], #composition-fps-button[hidden], #cut-speed-button[hidden], #post-fx-master-button[hidden], #share-settings-button[hidden], #runtime-pause-button[hidden], #runtime-mute-button[hidden], .post-common-fx-button[hidden] { display: none; }
 
 #share-toast {
   position: fixed;
@@ -98,11 +109,43 @@ canvas { position: absolute; inset: 0; display: block; width: 100% !important; h
 }
 #share-toast.is-visible { opacity: 1; transform: translateX(0); }
 
-#start-screen { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(20px + var(--safe-left)); background: #000; color: rgba(var(--dodrei-ui), .80); cursor: pointer; }
+#start-screen {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(20px + var(--safe-left));
+  background: #000;
+  color: rgba(var(--dodrei-start-ink), .72);
+  cursor: pointer;
+  font-family: var(--font-cormorant-garamond, Georgia, serif);
+}
 #start-screen.is-hidden { display: none; }
-.start-copy { width: min(100%, 620px); text-align: left; font-size: clamp(10px, 2.6vw, 13px); line-height: 1.35; letter-spacing: 0.025em; }
-.start-title { opacity: 0.46; margin-bottom: 18px; }
-.start-action { font-size: clamp(17px, 5vw, 30px); letter-spacing: 0.02em; margin-bottom: 10px; }
-.start-note { opacity: 0.30; }
+.start-copy {
+  width: min(88vw, 620px);
+  text-align: center;
+  font-size: clamp(13px, 2.6vw, 17px);
+  line-height: 1.38;
+  letter-spacing: .035em;
+}
+.start-title {
+  margin-bottom: 20px;
+  color: rgba(var(--dodrei-start-ink), .82);
+  font-size: clamp(28px, 8vw, 54px);
+  font-weight: 400;
+  letter-spacing: .10em;
+}
+.start-action {
+  margin-bottom: 10px;
+  color: rgba(var(--dodrei-start-ink), .62);
+  font-size: clamp(15px, 3.8vw, 22px);
+  font-weight: 400;
+  letter-spacing: .055em;
+}
+.start-note {
+  color: rgba(var(--dodrei-start-ink), .34);
+  font-size: clamp(11px, 2.2vw, 14px);
+  letter-spacing: .04em;
+}
 #fatal-message { position: fixed; z-index: 2000; inset: 0; padding: 24px; white-space: pre-wrap; overflow: auto; background: #000; color: #fff; font: 12px/1.5 var(--font-ibm-plex-mono, "IBM Plex Mono", ui-monospace, monospace); }
-@media (min-aspect-ratio: 4 / 3) { .start-copy { width: min(58vw, 760px); } }
