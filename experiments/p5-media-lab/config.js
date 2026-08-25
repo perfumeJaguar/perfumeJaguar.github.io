@@ -7,7 +7,7 @@
  * Mental model:
  *   app         = timing / fullscreen / global runtime
  *   render      = performance / internal resolution
- *   media       = where images come from and how they preload
+ *   media       = image archive / resident working set / rotation policy
  *   interaction = smoothing of mouse/touch input
  *   audio       = transport + interactive wet-FX range
  *   visual      = crop / feedback / rupture / preset composition
@@ -16,7 +16,7 @@
 window.P5LAB_CONFIG = {
   app: {
     title: "P5 MEDIA LAB / 01",
-    version: "0.6.8",
+    version: "0.7.0",
     targetFps: 60,
     requestFullscreenOnStart: true,
     preventContextMenu: true,
@@ -43,9 +43,20 @@ window.P5LAB_CONFIG = {
     githubBranch: "main",
     githubImageDir: "experiments/p5-media-lab/assets/images",
     imageExtensions: ["jpg", "jpeg", "png", "webp", "gif", "avif"],
-    preloadAllImages: true,
-    imagePreloadConcurrency: 3,
-    imageCacheLimit: 96,
+
+    // Optional set boundary. Current behavior uses one set; later, folders such
+    // as personA/ and personB/ can be added here without changing the renderer.
+    // Example: [{ id: "personA", subdir: "personA" }, { id: "personB", subdir: "personB" }]
+    imageSets: [{ id: "default", subdir: "" }],
+
+    // Decoded-image working set. The complete archive remains lightweight path
+    // metadata; only these resident/staging images stay strongly referenced.
+    activeImageLimit: 20,
+    initialLoadConcurrency: 3,
+    rotationBatchSize: 5,
+    rotationIntervalSec: 5,
+    rotationLoadConcurrency: 1,
+    rotationPolicy: "shuffle-bag",
   },
 
   interaction: {
@@ -78,10 +89,13 @@ window.P5LAB_CONFIG = {
     enabled: true,
 
     // Every individual source draw receives an independent random crop.
+    // v0.7.0 keeps the artistic zoom range fixed, while crop position can roam
+    // across 100% of the overflow created by BOTH cover-fit and extra zoom.
     sourceCropMinZoom: 1.0,
-    sourceCropMaxZoom: 2.65,
-    sourceCropTouchBoost: 0.45,
+    sourceCropMaxZoom: 2.5,
+    sourceCropTouchBoost: 0.0,
     sourceCropPanFactor: 0.42,
+    sourceCropOverflowPan: 1.0,
     touchTransitionSlowdown: 0.28,
 
     // General recursive feedback.
@@ -104,10 +118,6 @@ window.P5LAB_CONFIG = {
     crushIntruderAlpha: 28,
 
     // TOUCH RUPTURE ----------------------------------------------------------
-    // v0.6.8:
-    // - mobile rupture resolution raised from 0.45 to 0.50;
-    // - mobile still recalculates every 2nd rendered frame;
-    // - palette is BLACK / DARK GRAY / MUTED RED / WHITE.
     touchRuptureContrast: 3.2,
     touchRuptureBands: 13,
     touchRuptureResolutionScaleMobile: 0.50,
