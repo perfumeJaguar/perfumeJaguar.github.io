@@ -1,8 +1,8 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-25  
-Current artwork/runtime version: `0.10.6`  
-Current visual engine version: `0.10.5`  
+Current artwork/runtime version: `0.10.7`  
+Current visual engine version: `0.10.7`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
 Path: `experiments/p5-media-lab/`
@@ -19,15 +19,26 @@ Upper-right runtime controls:
 [S1 ]  VISUAL SPEED: 0.25 / 0.50 / 0.70 / 1.00 / 1.50x
 
 [BW ]  binary black/white POST FX
+[GS ]  grayscale POST FX
 [CR ]  Common Crush POST FX
 [HC ]  strong color-preserving high contrast POST FX
 [DK ]  darken overlay POST FX
 [VG ]  very strong vignette POST FX
 ```
 
-All five POST COMMON FX toggles start OFF.
+Startup POST FX state:
 
-## v0.10.6 — PRE / POST COMMON FX
+```text
+HC ON -> DK ON
+BW OFF
+GS OFF
+CR OFF
+VG OFF
+```
+
+The order above is significant: startup chain is `HC -> DK`.
+
+## v0.10.7 — ordered POST COMMON FX
 
 ```text
 COMPOSITION LAYER
@@ -36,11 +47,13 @@ COMPOSITION LAYER
    └─ same sampled level as MODE; hook exists, no active PRE effect yet
         ↓
 POST COMMON FX
-├─ CRUSH
-├─ HIGH CONTRAST
-├─ BINARY B/W
-├─ DARKEN
-└─ STRONG VIGNETTE
+└─ dynamic ordered chain
+   ├─ BW
+   ├─ GS
+   ├─ CR
+   ├─ HC
+   ├─ DK
+   └─ VG
         ↓
 INTERACTION / FINAL FX
 ├─ touch rupture
@@ -50,48 +63,94 @@ INTERACTION / FINAL FX
 └─ waveform
 ```
 
-POST COMMON FX runs before touch/gesture processing. This makes the global look the material that interaction subsequently damages/processes.
+POST COMMON FX still runs before touch/gesture processing and its held result is cached.
 
-`DARKEN` currently lives with the other POST COMMON FX. A future text layer may move it to immediately before text if that gives better readability control.
+### Order semantics
+
+The previous fixed order is removed.
+
+- turning an effect ON appends it to the active chain;
+- turning an effect OFF removes it from the chain;
+- turning it ON again moves it to the end;
+- startup order comes from `visual.postCommonFx.order`;
+- current startup order is `highContrast -> darken`.
+
+Implementation: `js/visual-engine-v107.js` subclasses `DodreiVisualEngineV105`.
 
 ### POST FX behavior
 
-- `BW`: true two-level black/white threshold, not the current four-tone touch palette.
-- `CR`: reuses the previously disabled Common Crush implementation.
+- `BW`: two-level black/white threshold.
+- `GS`: normal grayscale conversion.
+- `CR`: Common Crush.
 - `HC`: aggressive color-preserving contrast; baseline `3.2x` contrast.
 - `DK`: black overlay; baseline alpha `0.46`.
 - `VG`: intentionally strong vignette; edge opacity baseline `0.96`.
 
-Fixed combination order:
+## Active mode order
+
+Current runtime sequence:
 
 ```text
-CRUSH -> HIGH CONTRAST -> B/W -> DARKEN -> STRONG VIGNETTE
+01 PHOTO_FEEDBACK_CROP
+02 PHOTO_RAPID_CROP
+03 PHOTO_SHARD_SWAP
+04 PHOTO_DOUBLE_BLEND
+05 PHOTO_BLEND_CYCLE
+06 PHOTO_FULL
 ```
 
-B/W is after color processing so combined toggles still end in true two-tone output.
+`PHOTO_FULL` is deliberately last as the clean/no-effect source view.
 
-The POST COMMON result is cached from the held base composition and is recomputed only when the base composition refreshes or a toggle changes. This avoids paying full post-processing cost on every outer render frame.
+### Removed/deferred modes
 
-Implementation: `js/visual-engine-v105.js` subclasses `DodreiVisualEngineV104`.
+`PHOTO_RGB_TEAR` is removed from the active sequence because it was too slow. Its telemetry alias was `CHR_MA::W0UND`, which is the “WOUND” mode seen in the runtime text.
 
-## Mode order
-
-`PHOTO_FULL` is now the first preset and is the clean reference mode.
+All LUMA/mosaic modes are removed from the active runtime sequence and moved to TODO:
 
 ```text
-01 PHOTO_FULL
-02 PHOTO_FEEDBACK_CROP
-03 PHOTO_RAPID_CROP
-04 PHOTO_RGB_TEAR
-05 PHOTO_SHARD_SWAP
-06 PHOTO_DOUBLE_BLEND
-07 PHOTO_BLEND_CYCLE
-08 LUMA_BLOCKS
-09 LUMA_VOID
-10 LUMA_MONO
-11 LUMA_DITHER
-12 LUMA_PULSE
+LUMA_BLOCKS
+LUMA_VOID
+LUMA_MONO
+LUMA_DITHER
+LUMA_PULSE
 ```
+
+The implementation code is intentionally retained for later redesign/reuse; only the current runtime preset list no longer exposes them.
+
+## Touch audio tuning
+
+The touch-audio rupture remains based on the native dry track plus the parallel Web Audio FX path.
+
+v0.10.7 reduces the loudness/strength jump by lowering:
+
+- dry-track ducking;
+- wet-layer gain;
+- delay gain and feedback;
+- distortion amount;
+- filter resonance.
+
+Current tuning lives in `config.js` under `audio.touchFx*` and is applied by `js/audio-touch-v060.js`.
+
+## Telemetry text corruption
+
+Text corruption is now deliberately more frequent and more widely distributed.
+
+It can appear in:
+
+- status rows;
+- mode/FX labels;
+- parameter names/rows;
+- event log messages.
+
+The corruption is transient pseudo-random damage per short time slot; underlying diagnostic values are not changed. Main tuning is:
+
+```text
+glitchIntervalMs  260
+glitchChance      0.42
+glitchLineChance  0.24
+```
+
+Implementation: `js/telemetry-v107.js` patches the existing telemetry renderer.
 
 ## Temporal model
 
@@ -130,46 +189,40 @@ mobile rupture scale     0.50
 mobile rupture skip      every second rendered frame
 active image pool        20
 staging                   up to 5
-common crush             OFF at startup; runtime POST FX toggle
 halation / bloom          removed
+RGB tear mode             removed from active sequence
+LUMA/mosaic modes         deferred
 ```
 
 Still images use GitHub archive discovery with `assets.js` fallback. Selection uses shuffle-bag with active/staging exclusion and bounded decoded residency.
 
 ## Rollback
 
-If the new PRE/POST COMMON architecture is undesirable:
+For the v0.10.7 visual additions:
 
-1. remove `js/visual-engine-v105.js` from `index.html`;
-2. `visual-engine-v104.js` becomes active again;
-3. remove/ignore the five POST FX buttons and `visual.postCommonFx` config block.
+1. remove `js/visual-engine-v107.js` from `index.html`;
+2. `visual-engine-v105.js` becomes active again;
+3. remove/ignore the `GS` button and `grayscale` / `order` config fields.
 
-No inherited engine implementation was deleted.
+For telemetry corruption, remove `js/telemetry-v107.js` from `index.html`.
 
-## Deferred
+The older engine implementations remain intact.
 
+## Deferred / TODO
+
+- Revisit LUMA/mosaic modes later as a separate redesign rather than keeping them in the current rotation.
 - Mild GPU softness / analog texture remains under consideration and is not active.
 - PRE COMMON FX has architecture only; no effect is implemented there yet.
 - A future text layer may motivate moving `DARKEN` immediately before text.
 
-## Session-end checkpoint — 2026-08-25 23:17 KST
+## Checkpoint — 2026-08-25 23:xx KST
 
-Verified `main` before closing the session at commit `61fbc7a71aa4d3cdc5fc2d138519ff38c6223022` (`docs: update DODREI README for v0.10.6`).
+Requested changes implemented:
 
-Confirmed working direction from this session:
-
-- v0.10.4 virtual-time separation is accepted: VISUAL SPEED controls timeline progression, BASE FPS controls sample-and-hold cadence.
-- Runtime speed presets are `0.25 / 0.50 / 0.70 / 1.00 / 1.50x`, startup at `S1 / 0.25x`.
-- Runtime controls live on the upper-right to avoid telemetry overlap.
-- `PHOTO_FULL` is the first/reference mode.
-- PRE COMMON FX is a composition-level extension point and currently empty.
-- POST COMMON FX is implemented as five independent runtime toggles: `BW / CR / HC / DK / VG`, all OFF at startup.
-- POST COMMON FX sits before touch/gesture processing and its held result is cached for performance.
-
-Next-session first checks:
-
-1. Visually test `BW / CR / HC / DK / VG` independently and in combinations on mobile.
-2. Tune `HC`, `DK`, and `VG` strength from real-device viewing if needed.
-3. Check sustained mobile FPS/heat with POST FX enabled, especially BW and Crush.
-4. Decide later whether `DARKEN` should remain POST COMMON or move immediately before a future text layer.
-5. Mild GPU softness / analog texture remains the next optional visual experiment after POST FX tuning.
+1. all LUMA/mosaic modes removed from active sequence and recorded as TODO;
+2. slow `CHR_MA::W0UND` / `PHOTO_RGB_TEAR` mode removed from active sequence;
+3. screenshot startup look set to HC ON + DK ON, with clean `PHOTO_FULL` moved to the end;
+4. POST COMMON FX changed from fixed order to activation order;
+5. grayscale POST FX added as `GS`;
+6. touch audio FX strength/loudness reduced;
+7. telemetry character corruption made more frequent and spread across parameter/status/event text.
