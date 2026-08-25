@@ -2,8 +2,8 @@
 
 DODREI is a mobile-first browser media-art experiment built with **p5.js / JavaScript** and hosted on GitHub Pages.
 
-Current baseline: **v0.10.3**  
-Current visual engine: **0.10.3**  
+Current baseline: **v0.10.4**  
+Current visual engine: **0.10.4**  
 Current config schema: **1**
 
 The repository path remains `experiments/p5-media-lab/` for continuity.
@@ -19,78 +19,73 @@ Interaction:
 - fast swipe while holding: recursive swipe feedback;
 - upper-left `›`: manually advance to the next enabled visual mode;
 - upper-left FPS number: cycle BASE VISUAL FPS `15 -> 24 -> 30 -> 60`;
-- upper-left `S1...S4`: cycle independent image cut speed.
+- upper-left `S1...S4`: cycle VISUAL SPEED.
 
 Automatic visual-mode advancement remains disabled by default.
 
-## v0.10.3 — independent cut speed
+## v0.10.4 — virtual visual time
 
-v0.10.2 successfully made the BASE VISUAL FPS visible, but its image-choice `cutTick` was derived from the base-frame sample timestamp. That made image changes feel coupled to BASE FPS.
-
-v0.10.3 separates the clocks completely:
+The visible base timeline is separated from sampling FPS.
 
 ```text
-CUT CLOCK
-  wall-clock millis()
-  S1 320ms  slowest
-  S2 240ms  default
-  S3 170ms
-  S4 110ms  fastest
+VISUAL SPEED
+  S1 0.25x  slowest
+  S2 0.75x  default
+  S3 1.00x
+  S4 1.50x  fastest
+      │
+      └── advances VIRTUAL TIME
+            ├── crop / layout / blend state
+            ├── image-choice cut state
+            └── LUMA/time-driven base state
 
-BASE VISUAL CLOCK
-  15 / 24 / 30 / 60 fps
-  crop / layout / blend / LUMA state
-  sampled and held between base frames
+BASE VISUAL FPS
+  15 / 24 / 30 / 60
+  samples the current virtual state and holds it
 
-POST FX CLOCK
-  every available outer p5 render frame
+POST FX
+  every available outer render frame
   touch rupture / recursive feedback / swipe / vignette / waveform
 ```
 
-The visible image-choice tempo now uses `timing.cutIntervalMs`. The old `visual.photoCutMs = 90` remains for inherited glitch/rupture timing and compatibility; it no longer defines visible image cut speed in the active v0.10.3 base engine.
+The important rule is:
+
+```text
+VISUAL SPEED = how fast the artwork timeline progresses
+BASE FPS     = how often that timeline is sampled
+POST FX FPS  = actual available render callbacks
+```
+
+Changing visual speed preserves the accumulated virtual timeline position; it only changes future progression. Changing BASE FPS does not change timeline speed.
 
 Runtime controls:
 
 ```text
 [ › ]  next mode
 [30 ]  BASE VISUAL FPS
-[S2 ]  CUT SPEED
+[S2 ]  VISUAL SPEED
 ```
 
-Each cut-speed tap cycles:
+Current speed presets:
 
 ```text
-S1 -> S2 -> S3 -> S4 -> S1
+S1 0.25x -> state ≈ 5.6 Hz  / cut ≈ 960 ms
+S2 0.75x -> state ≈ 16.7 Hz / cut ≈ 320 ms
+S3 1.00x -> state ≈ 22.2 Hz / cut ≈ 240 ms
+S4 1.50x -> state ≈ 33.3 Hz / cut ≈ 160 ms
 ```
 
-Changing cut speed forces an immediate base sample so the UI cannot appear to lag behind the engine state.
+The S1 value was tuned from `0.50x` to `0.25x` after visual testing so the slowest state is meaningfully separated from S2.
 
 Telemetry exposes:
 
 ```text
 FPS         actual outer p5 render rate
 BASE_FPS    target / measured base refresh rate
-CUT_SPEED   level / milliseconds
+VIS_SPEED   level / multiplier
+STATE_HZ    effective virtual visual-state rate
+CUT_EST     estimated real-time image cut interval
 ```
-
-## v0.10.2 — experimental base visual clock
-
-`compositionFps` is used as the BASE VISUAL CLOCK rather than merely a performance cap. It drives sampled crop/layout/blend/LUMA state for PHOTO and LUMA modes while post FX continue on the outer render loop.
-
-Recommended values:
-
-```text
-15 fps  strong stepped motion
-24 fps  film-like cadence
-30 fps  default compromise
-60 fps  reference / smoother base state
-```
-
-The active v0.10.3 engine subclasses v0.10.2; earlier engine files are kept for rollback.
-
-## v0.10.0 — time-normalized recursive feedback
-
-Recursive feedback scale, retention, fade and swipe drift are normalized to wall-clock time using `deltaTime` with a capped stall interval. Source injection and random/glitch texture intentionally remain frame-sensitive.
 
 ## Current performance baseline
 
@@ -108,8 +103,6 @@ Recursive feedback scale, retention, fade and swipe drift are normalized to wall
 - common `PHOTO_CRUSH` remains implemented but is **OFF by default**.
 
 ## Mode model
-
-`visual.presets` is the mode playlist. Stable IDs identify presets independently of array position. Sequence order follows the array; disabled presets are skipped.
 
 Current 12 presets:
 
@@ -129,8 +122,8 @@ Current 12 presets:
 ## Visual pipeline
 
 ```text
-preset composition     [BASE VISUAL FPS]
-  -> common crush      [OFF by default]
+preset composition     [BASE VISUAL FPS sample-and-hold]
+  -> common crush      [OFF]
   -> touch rupture
   -> preset feedback
   -> swipe feedback
@@ -138,17 +131,16 @@ preset composition     [BASE VISUAL FPS]
   -> waveform
 ```
 
-## Configuration / Control
-
-`config.js` is canonical runtime data. `config-schema.js` provides optional editor metadata. The Control page discovers additive timing fields with inferred controls even when schema metadata is not explicit.
-
-Important timing values:
+## Important timing config
 
 ```js
 timing: {
   compositionFps: 30,
-  cutSpeedLevel: "S2",
-  cutIntervalMs: 240,
+  visualSpeedLevel: "S2",
+  visualSpeedMultiplier: 0.75,
+  visualStateIntervalMs: 45,
+  cutSpeedLevel: "S2", // legacy mirror
+  cutIntervalMs: 240,  // measured on virtual time
   timeReferenceFps: 60,
   maxDeltaMs: 100,
 }
@@ -159,14 +151,15 @@ timing: {
 - `config.js` — current runtime values;
 - `js/visual-engine-v100.js` — delta-time feedback normalization;
 - `js/visual-engine-v102.js` — sampled BASE VISUAL CLOCK;
-- `js/visual-engine-v103.js` — wall-clock CUT SPEED separation;
-- `js/mode-control-ui.js` — mode/FPS/cut runtime buttons;
-- `js/telemetry.js` — FPS/base/cut diagnostics;
+- `js/visual-engine-v103.js` — intermediate cut-clock experiment;
+- `js/visual-engine-v104.js` — cumulative virtual visual-time model;
+- `js/mode-control-ui.js` — mode/FPS/visual-speed runtime buttons;
+- `js/telemetry.js` — FPS/base/speed diagnostics;
 - `PROJECT_STATE.md` — implementation checkpoint.
 
 ## Rollback
 
-If the cut-speed experiment is wrong, remove the `visual-engine-v103.js` script load from `index.html`; v0.10.2 becomes active again. No inherited engine implementation was deleted.
+If the virtual-time experiment is wrong, remove the `visual-engine-v104.js` script load from `index.html`; v0.10.3 becomes active again. Earlier engine implementations remain intact.
 
 ## Deferred visual experiment
 

@@ -10,7 +10,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const FPS_OPTIONS = [15, 24, 30, 60];
   const SPEED_OPTIONS = [
-    { level: "S1", multiplier: 0.50 },
+    { level: "S1", multiplier: 0.25 },
     { level: "S2", multiplier: 0.75 },
     { level: "S3", multiplier: 1.00 },
     { level: "S4", multiplier: 1.50 },
