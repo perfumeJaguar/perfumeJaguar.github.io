@@ -13,7 +13,7 @@ PHOTO ONLY. Automatic mode advance is OFF.
 
 ```text
 BASE_FPS        30
-VIS_SPEED       S1 / 0.25x
+VIS_SPEED       S2 / 0.50x
 START_MODE      PHOTO_DOUBLE_BLEND / TWIN_EXPOSURE//NULL
 MODE_ORDER      DOUBLE_BLEND first
 CROP_MIN        1.0x
@@ -32,7 +32,7 @@ AUDIO           20220302 - sarabande.mp3
 Canonical visual defaults:
 
 ```text
-?fps=30&speed=S1&post=1&fx=HC,GS,FB,ST,GL&mode=photo-double-blend&crop=10-80
+?fps=30&speed=S2&post=1&fx=HC,GS,FB,ST,GL&mode=photo-double-blend&crop=10-80
 ```
 
 ## v1.0.23 — touch swipe-feedback damping
@@ -157,7 +157,7 @@ long non-repeat run     ALLOWED
 
 ## Checkpoint — v1.0.23
 
-1. Canonical preset remains `30 FPS / S1 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
-2. Runtime version is `1.0.23`; active visual-engine class remains `1.0.22` because this revision is config-only touch-feedback tuning.
+1. Canonical preset is now `30 FPS / S2 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
+2. Runtime version is `1.0.23`; active visual-engine class remains `1.0.22` because the latest adjustments are config/UI-only.
 3. Touch swipe-feedback strength is slightly reduced and its retain range no longer reaches the 255 non-decaying clamp at maximum swipe speed.
 4. Resize/fullscreen disposal patch, image quality caps, touch rupture/release behavior, startup sequence, UI behavior, and soundtrack remain unchanged.
