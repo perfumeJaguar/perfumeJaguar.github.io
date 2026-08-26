@@ -1,7 +1,7 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-26  
-Current artwork/runtime version: `1.0.22`  
+Current artwork/runtime version: `1.0.23`  
 Current visual engine version: `1.0.22`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
@@ -35,6 +35,22 @@ Canonical visual defaults:
 ?fps=30&speed=S1&post=1&fx=HC,GS,FB,ST,GL&mode=photo-double-blend&crop=10-80
 ```
 
+## v1.0.23 — touch swipe-feedback damping
+
+The touch/swipe temporal feedback previously multiplied the speed-mapped retain alpha by `swipeFeedbackStrength=2.0`. At high swipe speed this could clamp to alpha 255, producing an effectively non-decaying feedback loop during a sustained 2–3 second drag.
+
+Current tuning keeps the same activation threshold and geometry range but prevents that saturation:
+
+```text
+swipeFeedbackThreshold   0.25   unchanged
+swipeFeedbackStrength    1.8    (was 2.0)
+swipeFeedbackAlphaMin    42     unchanged
+swipeFeedbackAlphaMax    128    (was 178)
+max effective retain     ~230   instead of 255 clamp
+```
+
+The goal is to keep the swipe-feedback character while ensuring old frames continue to decay during a sustained drag rather than locking into a permanent-looking accumulation.
+
 ## v1.0.22 — film dimming + resize stability
 
 ### ST
@@ -51,7 +67,7 @@ implementation        translucent black overlay only
 
 A concrete resource-retention bug was identified in the inherited resize path: older visual-engine layers recreated multiple `p5.Graphics` surfaces without first removing the previous instances. The analyzer did the same with its analysis buffer. Repeated window/fullscreen changes could therefore leave stale graphics/GPU canvas resources behind and cause progressive slowdown.
 
-Current mitigation while keeping runtime version `1.0.22`:
+Current mitigation while keeping visual engine version `1.0.22`:
 
 ```text
 active visual engine  disposes inherited Graphics surfaces before rebuild
@@ -68,6 +84,7 @@ A fullscreen viewport can still legitimately cost more than a smaller window bec
 - Release tail is faster than the older interaction model and is velocity-aware.
 - Irregular horizontal rupture bands use mostly narrow slices with occasional larger fractures.
 - Touch rupture remains on the existing low-resolution buffers and mobile frame-skip path.
+- Swipe-feedback remains active only while pressed and above the `0.25` swipe threshold; v1.0.23 reduces its temporal accumulation ceiling.
 
 ## Global POST FX
 
@@ -123,13 +140,14 @@ long non-repeat run     ALLOWED
 
 ## Important files
 
-- `config.js` — canonical defaults / preset order / FX parameters;
+- `config.js` — canonical defaults / preset order / FX parameters / swipe-feedback tuning;
 - `assets.js` — soundtrack;
 - `js/visual-engine-v1022.js` — active engine / ST / resize graphics disposal;
 - `js/visual-engine-v1021.js` — GL and original ST layer;
 - `js/visual-engine-v1020.js` — touch rupture refinement;
 - `js/visual-engine-v1015.js` — performance-diet layer;
 - `js/visual-engine-v1012.js` — ordered global FB implementation;
+- `js/visual-engine-v1000.js` — swipe-feedback implementation and POST touch bypass;
 - `js/visual-engine-v1007.js` — mobile 2x main rendering;
 - `js/video-analyzer.js` — analysis buffer with resize disposal;
 - `sketch-v066.js` — startup and debounced viewport rebuild;
@@ -137,10 +155,9 @@ long non-repeat run     ALLOWED
 - `js/url-preset.js` — URL preset/share contract;
 - `index.html` — current page and cache key.
 
-## Checkpoint — v1.0.22
+## Checkpoint — v1.0.23
 
-1. Canonical preset is `30 FPS / S1 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
-2. Visible/runtime version remains `1.0.22` as requested.
-3. Resize/fullscreen rebuild now explicitly releases old visual and analysis Graphics resources.
-4. Viewport rebuild debounce increased to 320 ms and fullscreen changes share that debounce.
-5. Existing image quality caps, touch pipeline, startup sequence, UI behavior, and soundtrack remain unchanged.
+1. Canonical preset remains `30 FPS / S1 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
+2. Runtime version is `1.0.23`; active visual-engine class remains `1.0.22` because this revision is config-only touch-feedback tuning.
+3. Touch swipe-feedback strength is slightly reduced and its retain range no longer reaches the 255 non-decaying clamp at maximum swipe speed.
+4. Resize/fullscreen disposal patch, image quality caps, touch rupture/release behavior, startup sequence, UI behavior, and soundtrack remain unchanged.
