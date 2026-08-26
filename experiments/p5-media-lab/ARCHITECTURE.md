@@ -1,18 +1,19 @@
 # DODREI — Architecture
 
-Current artwork/runtime: **v0.8.0**  
+Current artwork/runtime: **v1.0.24**  
+Current visual engine: **v1.0.22**  
 Current config schema: **1**
 
 ## 1. Design objective
 
-DODREI has two simultaneous purposes:
+DODREI is both:
 
-1. operate as a coherent browser-based media artwork;
-2. act as a reusable laboratory for browser media-system architecture.
+1. a coherent browser-based media artwork;
+2. a reusable browser media-system laboratory.
 
-The current architecture favors explicit modules, bounded mobile cost, readable state, and a configuration model that can be reused in later projects.
+The current architecture favors explicit modules, bounded mobile cost, readable state, public/static deployment, and enough separation that the visual engine can later support a web book, game, hypertext work, or visual-novel-like memory system without being rewritten as one giant sketch.
 
-## 2. Runtime graph
+## 2. Current runtime graph
 
 ```text
 Mouse / Touch
@@ -37,15 +38,17 @@ MediaManager ── resident images ─> VideoAnalyzer
                                             ▼
                                          Canvas
                                             │
-                                            ▼
-                                        Telemetry
+                                            ├─ Telemetry
+                                            └─ HTML overlay layers
+                                                 ├─ runtime controls
+                                                 └─ Memory Recall prototype
 ```
 
-The project is currently PHOTO ONLY. Legacy video-related modules may remain for continuity, but active artwork behavior is based on still-image pools, audio, interaction, visual processing, and telemetry.
+The active artwork is PHOTO ONLY. Legacy video naming/modules remain for compatibility, but current behavior is driven by still-image pools, audio, interaction, Canvas2D visual processing, telemetry, and lightweight DOM overlays.
 
 ## 3. Application frame sequence
 
-The current orchestrator runs:
+`sketch-v066.js` currently orchestrates:
 
 1. `Interaction.update()`
 2. `MediaManager.update()`
@@ -54,11 +57,9 @@ The current orchestrator runs:
 5. `VisualEngine.render()`
 6. `Telemetry.render()`
 
-Telemetry remains last so it stays legible after heavy visual processing.
+Telemetry stays last so it remains legible after processed visuals. Memory recall is a DOM overlay and does not add another full-frame Canvas processing pass.
 
 ## 4. Configuration architecture
-
-v0.8.0 adds a distinct configuration layer.
 
 ```text
 config.js
@@ -77,109 +78,74 @@ control/
 
 ### `config.js`
 
-Canonical runtime data.
+Canonical public runtime data. Current notable values include:
 
-It is designed to be:
-
-- readable by hand;
-- directly executable as a classic browser script;
-- easy to replace through Git;
-- compatible with the existing `P5LAB_CONFIG` module interface.
-
-Canonical object:
-
-```js
-window.DODREI_CONFIG = { ... };
-window.P5LAB_CONFIG = window.DODREI_CONFIG;
+```text
+app.version                  1.0.24
+meta.configRevision          37
+composition FPS              30
+visual speed                 S2 / 0.50x
+crop                         1.0x .. 8.0x
+swipe threshold              0.15
+POST chain                   HC -> GS -> FB -> ST -> GL
 ```
+
+`window.P5LAB_CONFIG` remains a compatibility alias for older engine modules.
 
 ### `config-schema.js`
 
-Editor metadata, not runtime defaults.
-
-It describes:
-
-- value type;
-- bounds and steps;
-- select options;
-- structural read-only fields;
-- collection identity rules;
-- top-level group presentation;
-- migration aliases.
-
-A missing schema field does not hide the runtime parameter. Scalar control type is inferred from the live config.
+Editor metadata rather than runtime defaults. It describes value types, bounds, select options, collection identity, read-only structure and migration aliases.
 
 ### `control/`
 
-Static editor.
+Static editor with no GitHub write credentials. It can load deployed/current config, browser drafts, files, pasted config text, perform compatible merge, and export canonical `config.js`.
 
-It has no server credentials and cannot write GitHub directly.
+## 5. Version/display boundary
 
-It supports:
+Artwork version and visual-engine version are intentionally separate.
 
-- current deployed config;
-- browser-local drafts;
-- file import;
-- pasted JSON / JSON5 / config.js;
-- compatible partial merge;
-- change visualization;
-- canonical config.js export.
-
-## 5. Compatibility model
-
-Config compatibility is semantic, not purely version-number based.
-
-Scalar identity:
+Current state:
 
 ```text
-object path
+artwork/runtime    1.0.24
+visual engine      1.0.22
+config schema      1
 ```
 
-Structured collection identity:
+v1.0.23–24 add interaction/config/UI/prototype behavior without requiring another visual-engine subclass.
 
-```text
-stable item id
-```
-
-Examples:
-
-```text
-visual.swipeFeedbackThreshold
-visual.presets.photo-rgb-tear
-visual.pipeline.touch-rupture
-media.imageSets.default
-```
-
-Import does not replace the entire config blindly. Compatible current fields are merged into current-site defaults.
-
-This allows older tuning files to survive later additions.
+Important lesson from the v1.0.24 release: `index.html` start-note and `config.js app.version` must both be synchronized. Runtime presentation reads the config version, so a stale `app.version` can make a correctly deployed release appear old.
 
 ## 6. MediaManager
 
-Primary responsibilities:
+Responsibilities:
 
-- discover image archive entries;
+- discover image archive entries through GitHub Contents API;
 - attach `setId` metadata;
-- keep only a bounded decoded working set;
-- stage replacements;
+- keep a bounded decoded working set;
+- stage replacements in the background;
 - evict old decoded references;
-- isolate candidate-selection policy from renderer behavior.
+- isolate resident-pool selection from visual scene selection.
 
-Current defaults:
+Current values:
 
 ```text
-archive: lightweight metadata
-active decoded images: 20
-staging: up to 5
-runtime load concurrency: 1
-startup concurrency: 3
-rotation interval: 5 s
-candidate policy: shuffle-bag
+archive images          96
+active decoded images   20
+rotation batch          5
+rotation interval       5 s
+startup concurrency     3
+runtime decode          sequential
+resident candidate      shuffle-bag
 ```
 
-Future image-set weighting or alternation belongs here, not inside effects.
+### Two different randomness layers
 
-## 7. Image-set boundary
+Resident-pool rotation uses a shuffle bag to circulate archive content efficiently.
+
+Visible scene selection does **not** use that bag. Visible slots select independently with replacement, so duplicates and immediate repeats are valid artistic behavior.
+
+## 7. Image sets
 
 Current configuration:
 
@@ -189,48 +155,61 @@ imageSets: [
 ]
 ```
 
-Stable set IDs make later structures possible without changing image entries or rendering code.
-
-Possible future policy examples:
-
-```text
-strict alternation A/B
-weighted set selection
-quota per active pool
-unseen-first per set
-temporary set exclusion
-cross-set pairing
-```
-
-These should be implemented as selection strategies.
+Stable set IDs preserve room for future policies such as weighted sets, strict alternation, quotas, temporary exclusion, or cross-set pairing. Those policies belong in media selection, not in visual FX code.
 
 ## 8. Visual mode system
 
-`visual.presets` is the current mode playlist.
-
-Each mode contains:
-
-- stable `id`;
-- visible `name`;
-- `enabled`;
-- effect-selection flags.
-
-The engine consumes only enabled presets.
-
-`modeControl` currently supports:
+Current active mode order:
 
 ```text
-sequence
-shuffle
+01 PHOTO_DOUBLE_BLEND
+02 PHOTO_FEEDBACK_CROP
+03 PHOTO_RAPID_CROP
+04 PHOTO_SHARD_SWAP
+05 PHOTO_BLEND_CYCLE
+06 PHOTO_FULL
 ```
 
-Sequence uses array order.
+`PHOTO_DOUBLE_BLEND` is the default. `modeControl.startIndex = 0`. Automatic advance is currently OFF; manual next-mode remains available.
 
-Shuffle uses a bag of enabled preset indexes and avoids immediate repetition where possible.
+## 9. Visual engine chain
 
-## 9. Visual pipeline
+The project still uses additive versioned subclasses for compatibility. Relevant active tail:
 
-The current stage graph is linear:
+```text
+visual-engine-v1000.js
+        ↓
+visual-engine-v1003.js
+        ↓
+visual-engine-v1004.js
+        ↓
+visual-engine-v1007.js
+        ↓
+visual-engine-v1012.js
+        ↓
+visual-engine-v1015.js
+        ↓
+visual-engine-v1020.js
+        ↓
+visual-engine-v1021.js
+        ↓
+visual-engine-v1022.js   <- active class / engine version 1.0.22
+```
+
+Key responsibilities near the tail:
+
+- `v1000` — swipe feedback / touch POST bypass;
+- `v1003` — open random scene-slot selection and crop behavior;
+- `v1007` — mobile 2x main composition;
+- `v1012` — ordered global POST FB;
+- `v1015` — performance diet / filter batching / reduced BL and FB buffers;
+- `v1020` — irregular touch rupture and short release fracture behavior;
+- `v1021` — GL sparse temporal slice glitch and original ST;
+- `v1022` — ST film-style dimming only + resize resource disposal.
+
+## 10. Visual pipeline and POST
+
+Legacy/main stage graph:
 
 ```text
 preset-composition
@@ -248,95 +227,35 @@ vignette
 waveform
 ```
 
-v0.8.0 reads each stage's `enabled` value from config.
-
-The current pipeline order is locked.
-
-This is a deliberate boundary: configuration can select and parameterize supported operations, but does not yet become a general visual graph language.
-
-The representation still uses stable stage IDs so later engines can unlock compatible reordering without changing saved config shape.
-
-## 10. Crop architecture
-
-Every source draw receives an independent crop.
-
-v0.7.0 introduced overflow-aware placement:
-
-1. calculate cover-fit from real source dimensions;
-2. apply extra artistic zoom;
-3. calculate horizontal and vertical overflow;
-4. choose a random point over legal overflow;
-5. add modest touch bias;
-6. clamp to legal limits.
-
-Current zoom defaults:
+Global POST common FX are ordered separately. Current startup chain:
 
 ```text
-1.0x ... 2.5x
+HC -> GS -> FB -> ST -> GL
 ```
 
-The relevant target aspect ratio is the current render buffer / browser viewport.
+Current roles:
 
-## 11. Touch rupture
+- `HC` — high contrast/saturation stage;
+- `GS` — grayscale;
+- `FB` — temporal memory/feedback using reduced-resolution history;
+- `ST` — film/projection luminance breathing and rare dim dips; overlay only;
+- `GL` — sparse horizontal slice glitch at rest, much more active during touch.
 
-Current touch flow:
+## 11. Crop architecture
+
+Each source draw can receive an independent adaptive crop.
+
+Current default artistic zoom range:
 
 ```text
-current visual stage
-      ↓
-lower-resolution monochrome contrast pass
-      ↓
-horizontal rupture bands
-      ↓
-four-band palette quantization
+1.0x ... 8.0x
 ```
 
-Mobile rupture calculation is intentionally lower resolution and frame-skipped.
+Cover-fit is calculated from source dimensions and target buffer aspect, then artistic zoom/pan uses available overflow and legal clamping. Deep crops are intentionally allowed.
 
-v0.8.0 moves final palette thresholds/colors into config.
+## 12. Touch interaction
 
-This creates a clean boundary between the rupture algorithm and artwork color tuning.
-
-## 12. Swipe feedback
-
-Swipe feedback is conditional:
-
-```text
-pressed == true
-AND
-normalized swipe speed > swipeFeedbackThreshold
-```
-
-Current default threshold:
-
-```text
-0.30
-```
-
-Stationary hold does not trigger this second recursive layer.
-
-## 13. Audio
-
-The stable audible path uses a native HTML audio element.
-
-A parallel analysis/effect layer provides:
-
-- PCM windowing;
-- waveform;
-- filter control;
-- delay;
-- feedback;
-- distortion;
-- subtle playback-rate movement;
-- touch-dependent wet amount.
-
-Audio remains separate from media caching and visual mode selection.
-
-## 14. Interaction
-
-Mouse and one-finger touch are normalized into one state.
-
-Important concepts:
+Mouse and one-finger touch normalize into a small downstream state:
 
 ```text
 x
@@ -344,105 +263,182 @@ y
 pressure
 pressed
 swipeSpeed
+releaseEnergy
+releaseAgeMs
 ```
 
-This small interface keeps downstream audio/visual systems independent from browser event details.
+While held, visual playback runs at `0.50x` of its normal virtual timeline.
 
-## 15. Telemetry
+### Touch rupture
 
-Telemetry is both instrumentation and artwork.
+Current rupture behavior:
 
-It exposes real state while allowing restrained cosmetic corruption.
+- grayscale high-contrast base;
+- irregular horizontal slice heights;
+- most slices narrow, rare large fractures;
+- only some slices displaced;
+- mostly small displacement, occasional extreme displacement;
+- short held patterns rather than per-frame random noise;
+- velocity-aware release tail / brief fracture burst;
+- reduced-resolution mobile path with frame skipping.
 
-It remains outside the configurable visual-stage list because the application orchestrator renders it after the visual engine.
+### Swipe feedback
 
-## 16. Mobile performance strategy
+Conditional activation:
+
+```text
+pressed == true
+AND
+normalized swipe speed > 0.15
+```
+
+The threshold was lowered in v1.0.24. v1.0.23 reduced feedback strength/alpha ceiling so 2–3 second drags keep decaying instead of saturating into a nearly permanent loop.
+
+## 13. Audio
+
+The stable audible path uses native HTML audio with a parallel Web Audio analysis/effect layer.
+
+The current stack includes:
+
+- PCM analysis window;
+- waveform;
+- filter control;
+- delay/feedback;
+- distortion;
+- subtle playback-rate movement;
+- touch-dependent wet amount;
+- independent runtime mute;
+- pause integration through `DODREI_SET_PAUSED`.
+
+Current soundtrack:
+
+`assets/audio/20220302 - sarabande.mp3`
+
+## 14. Mobile visibility lifecycle
+
+`js/mobile-visibility-v1024.js` handles mobile-only document visibility.
+
+```text
+hidden   -> DODREI_SET_PAUSED(true)
+visible  -> resume only if this module auto-paused it
+user PAU -> authoritative; do not auto-resume
+```
+
+Desktop is intentionally left unchanged.
+
+This prevents mobile background playback/processing when the user switches apps, returns home, or moves to another hidden tab.
+
+## 15. Memory recall prototype
+
+`js/memory-recall-v1024.js` adds the first explicit content/recall layer without coupling narrative data to the visual engine.
+
+Current prototype:
+
+```text
+long press            2 s
+archive images        96
+placeholder fragments 24
+mapping                deterministic hash from archive key/index
+presentation           centered DOM overlay + MEMORY ### id
+release                fade out
+```
+
+### Current limitation
+
+The target memory is based on the MediaManager's current archive entry captured at hold-start. In multi-image modes, especially `PHOTO_DOUBLE_BLEND`, this is not yet the same as selecting the exact visible image/layer under the finger.
+
+### Intended architectural direction
+
+If the prototype proves useful, introduce a dedicated memory/content layer rather than embedding story logic into `VisualEngine`:
+
+```text
+Memory / Scene Data
+  ├─ memory id
+  ├─ archive/image key
+  ├─ text / audio / media payload
+  ├─ discovery condition
+  ├─ links / transitions
+  ├─ persistent state
+  └─ optional visual parameter cues
+
+Interaction Resolver
+  ├─ tap
+  ├─ hold
+  ├─ swipe
+  ├─ wait
+  └─ hotspot / scene-specific rules
+
+Visual Engine
+  └─ remains the memory-world surface / rendering physics
+```
+
+This preserves the option to evolve into an interactive book, web game, non-linear hypertext work, or visual-novel-like system without turning the renderer into a narrative monolith.
+
+## 16. Telemetry and HTML UI
+
+Telemetry is both instrumentation and artwork. It is rendered after processed visuals.
+
+Runtime controls and memory recall are HTML overlays. Simple DOM text, state checks and hotspot logic are comparatively cheap; performance risk mainly comes from added visual media, full-frame Canvas passes, large CSS filters/backdrop blur, or concurrent video.
+
+## 17. Mobile performance strategy
 
 Current principles:
 
 - `pixelDensity(1)`;
-- capped processing-buffer long edge;
+- main mobile composition at 2x CSS resolution;
+- effective mobile long-edge cap about 1440 after oversample;
 - reduced-resolution analysis;
 - bounded decoded image pool;
-- sequential runtime decode;
-- reduced rupture buffer on mobile;
-- rupture recalculation every second frame on mobile;
-- feedback at scaled resolution;
+- sequential background image decode;
+- reduced touch rupture/swipe buffers;
+- reduced GL scratch;
+- reduced global FB history;
+- mobile BL reduced scratch when enabled;
+- ST uses only a translucent overlay;
+- HC/GS/LS compatible Canvas filters batched where possible;
 - no active halation/bloom pass;
-- native-size telemetry after processed visuals.
+- explicit disposal of stale graphics buffers on resize/fullscreen rebuild.
 
-The browser still controls garbage collection and HTTP cache behavior.
-
-## 17. Versioned engine chain
-
-The project currently keeps versioned visual-engine files because later versions inherit prior behavior.
-
-Relevant tail:
+## 18. Startup sequence
 
 ```text
-visual-engine-v068.js
-        ↓
-visual-engine-v070.js
-        ↓
-visual-engine-v080.js
+0.0s   soundtrack begins immediately
+2.0s   title/start screen disappears
+2.0-3.0s black screen + music only
+3.0s   telemetry stage 1
+3.2s   telemetry stage 2
+3.4s   telemetry stage 3
+6.4s   main visual at 20% brightness
+7.4s   main visual at 100% brightness
 ```
 
-v0.8.0 is intentionally additive.
-
-It does not rewrite every legacy `P5Lab*` class name merely to rename the project. Public project identity and config are now DODREI while internal compatibility names can be migrated gradually.
-
-## 18. Editing map
+## 19. Editing map
 
 | Goal | Primary file |
 |---|---|
 | tune current artwork | `config.js` |
-| edit through UI | `control/` |
-| change validation/editor metadata | `config-schema.js` |
-| change image discovery/rotation policy | `js/media-manager.js` |
-| change base visual algorithms | versioned visual-engine files |
-| change current mode/pipeline control layer | `js/visual-engine-v080.js` |
-| change audio behavior | `js/audio-engine-v050.js`, `js/audio-touch-v060.js` |
-| change normalized input | `js/interaction.js` |
-| change telemetry | `js/telemetry.js` |
-| change application frame order/start/fullscreen | `sketch-v066.js` |
+| edit config through UI | `control/` |
+| validation/editor metadata | `config-schema.js` |
+| image discovery/resident rotation | `js/media-manager.js` |
+| visual algorithms / POST | active versioned visual-engine tail |
+| normalized touch release | `js/interaction-v1020.js` |
+| long-press recall prototype | `js/memory-recall-v1024.js` |
+| mobile hide/show lifecycle | `js/mobile-visibility-v1024.js` |
+| audio | `js/audio-engine-v050.js`, `js/audio-touch-v060.js`, `js/audio-mute-v105.js` |
+| telemetry | telemetry modules |
+| app frame/startup/pause/viewport | `sketch-v066.js` |
+| PAU/MUT/UI/FS controls | `js/runtime-utility-controls-v105.js` |
+| UI layout / memory text presentation | `style.css` |
+| current script chain/cache key | `index.html` |
 
-## 19. Deliberate boundaries
+## 20. Source-of-truth / continuation rule
 
-The configuration system should not become an accidental programming language.
+For a new session:
 
-Config may contain:
+1. read `PROJECT_STATE.md` first;
+2. verify `config.js` for actual defaults and `app.version`;
+3. verify `index.html` for active modules, cache key and start-note;
+4. inspect only the relevant active tail modules;
+5. update docs at meaningful checkpoints.
 
-- values;
-- stable IDs;
-- ordered lists;
-- enabled flags;
-- strategy names;
-- supported mode identifiers.
-
-Config should not contain:
-
-- arbitrary JavaScript functions;
-- executable conditions;
-- callbacks;
-- code strings;
-- runtime plugin source.
-
-When new behavior is needed, implement behavior in a module, then expose a clean data contract in config.
-
-## 20. Future architectural options
-
-If the current model proves useful, later projects can extend it toward:
-
-- dependency-aware schema validation;
-- reusable config-schema package;
-- formal migrations between schema versions;
-- config diff view;
-- named config snapshots;
-- per-device profiles;
-- media-selection strategy registry;
-- reorderable compatible visual stages;
-- WebGL/Three.js shader stages;
-- project-specific control-page themes;
-- a shared DODREI-derived control shell used by other artworks.
-
-These are directions, not current commitments.
+Do not reconstruct current implementation from old version numbers or stale conversation memory when the repository can answer it directly.
