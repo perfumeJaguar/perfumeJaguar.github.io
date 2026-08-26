@@ -1,9 +1,9 @@
 /** DODREI — VISUAL ENGINE v1.0.26
- * Memory recall now locks the PRE-FX composition to one archive still.
- * While recall is active, the ordinary preset composition clock, random image
- * selection, random crop/layout evolution, and PRE common FX do not advance.
- * The existing touch rupture / preset feedback / swipe feedback path continues
- * downstream from that fixed still image until the gesture ends.
+ * Memory recall locks the PRE-FX composition to one archive still.
+ * While recall is active, ordinary preset composition, random image selection,
+ * random crop/layout evolution, PRE common FX, and preset feedback do not run.
+ * Only the established touch-side rupture / swipe-feedback path continues from
+ * that fixed still image until the gesture ends.
  */
 class DodreiVisualEngineV1026 extends DodreiVisualEngineV1022 {
   constructor(config, telemetry) {
@@ -49,7 +49,7 @@ class DodreiVisualEngineV1026 extends DodreiVisualEngineV1022 {
     const g = this.buffer;
     g.push();
     g.background(0);
-    // Memory source is intentionally stable: one centered 1x cover crop.
+    // Stable memory source: one centered 1x cover crop.
     // No preset blending, random source selection, crop reseeding, or touch pan.
     P5LabUtils.drawCover(g, recall.img, 255, 1, 0, 0);
     g.pop();
@@ -63,8 +63,8 @@ class DodreiVisualEngineV1026 extends DodreiVisualEngineV1022 {
     this._memoryRecallKey = null;
     this._clearMemoryTemporalBuffers();
 
-    // Resume ordinary composition from the exact point where recall intercepted it,
-    // but force a fresh legal scene on the first frame after release.
+    // Force a fresh legal scene after release while preventing the stopped
+    // virtual clock from jumping forward by the duration of the memory hold.
     this._compositionLastMs = -Infinity;
     this._compositionPresetId = null;
     try { this._sceneImageSlots?.clear?.(); } catch (_) {}
@@ -81,20 +81,13 @@ class DodreiVisualEngineV1026 extends DodreiVisualEngineV1022 {
     if (!this._prepareMemoryBase(recall)) return;
 
     const p = this.currentPreset();
-    const g = this.buffer;
-    const pool = [recall.img];
-    let stage = g;
+    let stage = this.buffer;
 
-    // MEMORY LOCK replaces the ordinary preset-composition/PRE-FX stage.
-    // From here down, preserve the established touch-side processing chain.
+    // MEMORY LOCK replaces the whole ordinary composition/PRE/preset-feedback
+    // section. Touch-specific processing begins from the fixed still itself.
     const fxTick = this.tick(this.config.photoCutMs, interaction);
     if (this._touchFxActive(interaction)) {
       stage = this.applyTouchRupture(stage, interaction, audio, fxTick);
-    }
-
-    if (this.pipelineEnabled("preset-feedback") && p?.feedback) {
-      this.applyPhotoFeedback(stage, audio, interaction);
-      stage = this.feedback;
     }
 
     const swipe = interaction?.swipeSpeed || 0;
