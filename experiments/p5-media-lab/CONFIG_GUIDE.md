@@ -1,17 +1,16 @@
 # DODREI Configuration Guide
 
 Current config schema: **1**  
-Current artwork/runtime: **0.8.0**
+Current artwork/runtime: **1.0.24**  
+Current config revision: **37**
 
 ## 1. Purpose
 
-DODREI keeps runtime tuning in a single canonical data file:
+DODREI keeps runtime tuning in one canonical browser-side data file:
 
 `config.js`
 
-The file is intentionally readable and editable by hand. It is also machine-readable by `control/`.
-
-The basic contract is:
+The file is intentionally readable/editable by hand and machine-readable by the static `control/` editor.
 
 ```text
 config.js
@@ -20,20 +19,16 @@ config.js
 DODREI runtime
 
 config-schema.js
-   │ meaning / validation / UI metadata
+   │ meaning / validation / editor metadata
    ▼
 DODREI CONTROL
 ```
 
-The schema never replaces the config. It only explains it.
+The schema explains the config; it does not replace it.
 
-## 2. Why config.js instead of .env
+## 2. Public browser configuration
 
-These values are browser runtime/artwork parameters, not secret deployment environment variables.
-
-A GitHub Pages site cannot safely use `.env` in the same way as a server application. DODREI therefore uses a public runtime config object.
-
-Do not place passwords, GitHub tokens, API secrets, private URLs, or credentials in `config.js`.
+These are artwork/runtime parameters, not secrets. GitHub Pages is a static public host, so `config.js` must never contain passwords, tokens, API secrets, private URLs, credentials, or other secret deployment data.
 
 ## 3. Canonical shape
 
@@ -41,6 +36,7 @@ Do not place passwords, GitHub tokens, API secrets, private URLs, or credentials
 window.DODREI_CONFIG = {
   meta: {},
   app: {},
+  timing: {},
   render: {},
   media: {},
   interaction: {},
@@ -53,7 +49,7 @@ window.DODREI_CONFIG = {
 window.P5LAB_CONFIG = window.DODREI_CONFIG;
 ```
 
-`P5LAB_CONFIG` is currently a compatibility alias for older engine modules.
+`P5LAB_CONFIG` remains a compatibility alias for older modules.
 
 ## 4. Version model
 
@@ -62,24 +58,50 @@ Keep these separate:
 ```text
 app.version
 ```
-
-Artwork/runtime release. Change this when behavior or implementation changes meaningfully.
+Artwork/runtime release. This is also consumed by runtime presentation/telemetry and must be updated whenever the displayed release changes.
 
 ```text
 meta.schemaVersion
 ```
-
-Configuration contract version. Change this only when the config shape becomes meaningfully incompatible or requires migration logic.
+Configuration contract version. Change only for meaningfully incompatible config-shape changes.
 
 ```text
 meta.configRevision
 ```
+Human revision for tuning/config snapshots.
 
-Optional human revision for tuning snapshots.
+### Important v1.0.24 lesson
 
-A v0.9.0 artwork can still use schema 1.
+`index.html` can display a new start-note while `config.js app.version` still contains an older release string. That happened during v1.0.24: Pages had the new code, but telemetry/runtime presentation still showed `1.0.23` because `app.version` had not been updated.
 
-## 5. Stable IDs
+Before declaring a deployment/version mismatch, verify both:
+
+```text
+index.html start-note / cache key
+config.js app.version
+```
+
+## 5. Current canonical defaults
+
+```text
+app.version                 1.0.24
+timing.compositionFps       30
+timing.visualSpeedLevel     S2
+timing.visualSpeedMultiplier 0.50
+visual.sourceCropMinZoom    1.0
+visual.sourceCropMaxZoom    8.0
+visual.swipeFeedbackThreshold 0.15
+visual.postCommonFx.masterEnabled true
+visual.postCommonFx.order   HC -> GS -> FB -> ST -> GL
+```
+
+Canonical share shape:
+
+```text
+?fps=30&speed=S2&post=1&fx=HC,GS,FB,ST,GL&mode=photo-double-blend&crop=10-80
+```
+
+## 6. Stable IDs
 
 Ordered object collections use stable IDs.
 
@@ -88,82 +110,38 @@ Example:
 ```js
 presets: [
   {
-    id: "photo-feedback-crop",
-    name: "PHOTO_FEEDBACK_CROP",
+    id: "photo-double-blend",
+    name: "PHOTO_DOUBLE_BLEND",
     enabled: true
   }
 ]
 ```
 
-The `id` is the compatibility identity.
+The `id` is compatibility identity. Visible name or array position may change; the ID should not change casually.
 
-The visible `name` can change.  
-The array position can change.  
-The `id` should not change casually.
-
-The same principle applies to:
+This applies to:
 
 - visual presets;
 - visual pipeline stages;
 - image sets.
 
-This allows old files to be compared by meaning instead of array position.
-
-## 6. Import rules
+## 7. Import / merge rules
 
 DODREI CONTROL uses compatible partial merge.
 
-### Compatible
+- **Compatible**: current path/ID exists and imported value validates -> use imported value.
+- **Missing**: current config has a value absent from imported file -> retain current-site value.
+- **Obsolete**: imported path/ID is unknown -> ignore.
+- **Invalid**: known path but wrong type/range/structure -> ignore.
+- **Added**: collections that explicitly allow new IDs may accept them; current example is `media.imageSets`.
 
-The current config contains the path/ID and the imported value passes current validation.
+Preset and pipeline IDs are not open-ended because unknown effect/stage names do not create engine implementation.
 
-Action: imported value is used.
-
-### Missing
-
-The current config contains a value that does not exist in the imported file.
-
-Action: current-site value is retained.
-
-This is normal when importing an older file into a newer build.
-
-### Obsolete
-
-The imported file contains a path or stable ID that the current config/runtime does not recognize.
-
-Action: ignored.
-
-### Invalid
-
-The path exists, but type/range/structural validation fails.
-
-Action: ignored.
-
-### Added
-
-Some collections explicitly allow new IDs.
-
-Current example: `media.imageSets`.
-
-Action: accepted.
-
-Preset and pipeline IDs are not open-ended because adding an unknown effect/stage does not magically add engine implementation.
-
-## 7. Schema mismatch
-
-A different `meta.schemaVersion` does not automatically reject the whole file.
-
-The editor warns about the mismatch and still attempts path/ID-level compatible merge.
-
-This is deliberate. A file can be partly useful even when its schema differs.
-
-When a future schema change truly requires transformation, add a migration alias/rule to `config-schema.js`.
+A schema-version mismatch does not automatically reject the whole file. The editor warns and still attempts compatible path/ID-level merge.
 
 ## 8. Renamed fields
 
-`config-schema.js` reserves an `aliases` map.
-
-Example:
+`config-schema.js` reserves an `aliases` map for migration.
 
 ```js
 aliases: {
@@ -171,56 +149,55 @@ aliases: {
 }
 ```
 
-When a field is renamed, prefer an explicit migration alias instead of supporting both names indefinitely.
+Prefer explicit migration aliases instead of indefinitely supporting duplicate field names.
 
-## 9. Comments
+## 9. Config is data, not code
 
-Hand-written `config.js` comments are useful and encouraged.
+Do not place functions, callbacks, arbitrary expressions or executable snippets inside the config object.
 
-However, imported comments are not treated as data.
+Bad:
 
-The control page:
+```js
+value: () => Math.random()
+```
 
-1. parses values;
-2. edits/merges the data model;
-3. exports a newly formatted canonical `config.js`;
-4. regenerates standard comments from schema metadata.
+Good:
 
-Therefore arbitrary comments from an imported file are not guaranteed to survive export.
+```js
+strategy: "sequence"
+swipeFeedbackThreshold: 0.15
+```
 
-This is intentional. Compatibility decisions must never depend on prose comments.
+Behavior belongs in modules; config selects supported behavior and supplies parameters.
 
 ## 10. Mode playlist
 
 `visual.presets` is the current artwork mode playlist.
 
-Array order is the sequence order.
+Current order:
 
-Each mode can be disabled without removing it:
-
-```js
-{
-  id: "photo-rgb-tear",
-  enabled: false,
-  ...
-}
+```text
+01 photo-double-blend
+02 photo-feedback-crop
+03 photo-rapid-crop
+04 photo-shard-swap
+05 photo-blend-cycle
+06 photo-full
 ```
 
-Current mode-control options:
+Current mode control:
 
 ```js
 modeControl: {
   strategy: "sequence",
   startIndex: 0,
-  loop: true
+  loop: true,
+  autoAdvance: false,
+  manualButtonEnabled: true
 }
 ```
 
-`sequence` advances in array order.
-
-`shuffle` chooses among enabled presets without immediately repeating the current preset.
-
-`loop: false` currently applies to sequential playback and holds the final enabled mode.
+Automatic mode advance is currently OFF.
 
 ## 11. Visual pipeline
 
@@ -236,17 +213,37 @@ vignette
 waveform
 ```
 
-The current v0.8.0 engine honors `enabled`.
+The stage representation is stable-ID based, but the active runtime still owns the actual ordering/compatibility rules. Do not add an unknown stage in config and expect it to execute.
 
-The current engine does not honor arbitrary reordering.
+Global POST common FX are handled separately through `visual.postCommonFx` with ordered keys such as:
 
-Why: the stages are not independent nodes yet. Some consume buffers produced by previous stages.
+```text
+BW GS LS BL FB GL ST CR HC DK VG
+```
 
-The config uses an ordered ID list anyway because it provides a clean future migration path toward reorderable compatible stages.
+Current startup POST chain is:
 
-Do not add an unknown pipeline stage in config and expect it to execute. New stage implementation belongs in engine code first.
+```text
+HC -> GS -> FB -> ST -> GL
+```
 
-## 12. Image sets
+## 12. Touch-related parameters
+
+Current notable values:
+
+```text
+touchPlaybackSpeedMultiplier 0.50
+swipeFeedbackThreshold       0.15
+swipeFeedbackStrength        1.8
+swipeFeedbackAlphaMin        42
+swipeFeedbackAlphaMax        128
+```
+
+The threshold was lowered from `0.25` in v1.0.24 so small drags can trigger feedback. The retain/strength damping from v1.0.23 remains to avoid long drags saturating into a near-non-decaying feedback loop.
+
+Touch rupture palette is grayscale only.
+
+## 13. Image sets and residency
 
 Current structure:
 
@@ -256,121 +253,98 @@ imageSets: [
 ]
 ```
 
-A new folder set can be added without engine changes:
+Current archive/runtime values:
 
-```js
-imageSets: [
-  { id: "person-a", subdir: "personA" },
-  { id: "person-b", subdir: "personB" }
-]
+```text
+archive files          96
+active decoded limit   20
+rotation batch         5
+rotation interval      5 s
+startup concurrency    3
+runtime rotation load  sequential
 ```
 
-Current media selection pools configured sets together.
+Additional sets can be added as explicit subfolders and stable IDs. Future weighting/alternation/quotas belong in media-selection policy, not visual-effect code.
 
-Future weighting, quotas, alternation, and cross-set rules should be implemented as media selection policies, not as visual-effect logic.
+Visible scene selection is independent random-with-replacement. The MediaManager shuffle bag is only for resident working-set rotation.
 
-## 13. Local drafts
+## 14. Memory recall and narrative state
 
-The Control page automatically stores the working config in browser `localStorage`.
+The v1.0.24 memory-recall prototype is implemented in `js/memory-recall-v1024.js`, not in `config.js` yet.
 
-This is convenience only.
+Current behavior:
 
-It is not:
+```text
+hold time             2000 ms
+mapping               archive key/index -> deterministic placeholder fragment
+placeholder fragments 24
+archive images        96
+```
 
-- a backup guarantee;
-- repository history;
-- portable between browsers/devices;
-- source of truth.
+Future explicit narrative content should preferably move into a dedicated data structure/file rather than bloating `config.js` with story content. Config can expose supported timing/visual parameters later, while memory text/link/state data should remain its own content layer.
 
-Export important tuning states to a file and/or commit them to Git.
+## 15. Mobile visibility pause
 
-## 14. Static deployment workflow
+`js/mobile-visibility-v1024.js` handles mobile-only `visibilitychange` pause/resume. This behavior is code-owned, not currently configurable.
+
+It pauses only when the page becomes hidden and resumes only if the module itself caused the pause. User PAU state remains authoritative.
+
+## 16. Local drafts
+
+The Control page may store a browser `localStorage` draft. This is convenience only, not a backup or source of truth.
+
+Important tuning states should be exported and/or committed to Git.
+
+## 17. Static deployment workflow
 
 Normal workflow:
 
 ```text
-1. Open DODREI CONTROL
-2. Load CURRENT SITE / LOCAL DRAFT / FILE / PASTED TEXT
-3. Edit
-4. Review modified count and import warnings
-5. Download config.js
-6. Replace experiments/p5-media-lab/config.js
-7. Commit
-8. Verify live DODREI version / ENGINE telemetry
+1. Open DODREI CONTROL (optional)
+2. Load current site / local draft / file / pasted config
+3. Edit and review warnings
+4. Export config.js if using Control
+5. Replace config.js
+6. Commit
+7. Verify index.html start-note/cache key
+8. Verify config.js app.version
+9. Verify live runtime/telemetry
 ```
 
-ChatGPT/GitHub tooling may also update the repository directly when explicitly requested, but the browser control page itself has no repository write credentials.
+The static browser control page has no repository write credentials.
 
-## 15. Adding a new scalar parameter
+## 18. Adding a parameter
 
 Preferred sequence:
 
 ```text
-1. Add the runtime value to config.js.
-2. Make engine/module code read that path.
-3. Add schema metadata if useful.
-4. Test the Control page.
-5. Document behavior if it affects architecture.
+1. Add runtime value to config.js.
+2. Make module code read that path.
+3. Add config-schema metadata if useful.
+4. Test Control import/export.
+5. Update README / PROJECT_STATE / architecture docs when behavior is user-visible or structural.
 ```
 
-Even before step 3, the Control page should render ordinary scalar values using inferred type.
+## 19. Current limitations
 
-## 16. Adding a new structured collection
-
-Use stable IDs if:
-
-- items can reorder;
-- items can be enabled/disabled;
-- items may be compared across versions;
-- human names can change independently.
-
-Then add an entry to `schema.collections`.
-
-Avoid using array index as semantic identity.
-
-## 17. Boundary: config is data, not code
-
-Do not put functions, conditionals, callbacks, arbitrary JavaScript expressions, or executable snippets inside the config object.
-
-Bad:
-
-```js
-value: () => Math.random()
-```
-
-Bad:
-
-```js
-condition: "if (touch > .3) ..."
-```
-
-Good:
-
-```js
-strategy: "shuffle"
-```
-
-Good:
-
-```js
-swipeFeedbackThreshold: 0.30
-```
-
-The engine owns behavior. Config chooses among supported behavior and supplies parameters.
-
-This boundary is what makes validation, import compatibility, editing UI and future migrations tractable.
-
-## 18. Current limitations
-
-The control/schema system does not yet provide:
+The config/control system does not yet provide:
 
 - dependency rules between fields;
-- automatic semantic validation such as `min <= max` for every pair;
-- GitHub write-back;
+- full semantic pair validation for every min/max relationship;
+- GitHub write-back from the public control page;
 - undo/redo history;
-- diff visualization between two arbitrary external files;
-- formal JSON Schema compliance;
-- arbitrary pipeline graph editing;
-- plugin discovery.
+- general graph/node editing;
+- automatic plugin discovery;
+- a formal memory/narrative content schema;
+- arbitrary POST graph reordering beyond currently supported runtime behavior.
 
-Those are possible later. They are intentionally outside v0.8.0 until the current model proves useful in real artwork iteration.
+## 20. Source of truth
+
+For continuation work:
+
+1. read `PROJECT_STATE.md`;
+2. verify `config.js`;
+3. verify `index.html` active script chain/cache key;
+4. inspect the active tail modules only as needed.
+
+Do not reconstruct current defaults from old versioned module names or stale prose.
