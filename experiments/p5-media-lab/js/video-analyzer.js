@@ -33,6 +33,8 @@ class P5LabVideoAnalyzer {
   }
 
   rebuild(viewportW, viewportH) {
+    try { this.buffer?.remove?.(); } catch (_) {}
+    this.buffer = null;
     const mobile = P5LabUtils.isMobileLayout();
     const aw = mobile ? this.config.analysisWidthMobile : this.config.analysisWidthDesktop;
     const ah = Math.max(1, Math.round(aw * viewportH / viewportW));
