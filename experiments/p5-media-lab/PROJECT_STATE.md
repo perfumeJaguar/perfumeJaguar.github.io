@@ -1,8 +1,8 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-26  
-Current artwork/runtime version: `1.0.26`  
-Current visual engine version: `1.0.26`  
+Current artwork/runtime version: `1.0.27`  
+Current visual engine version: `1.0.27`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
 Path: `experiments/p5-media-lab/`
@@ -25,6 +25,8 @@ POST_ST         ON
 POST_GL         ON
 TOUCH_PLAYBACK  0.50x while held before recall activation
 SWIPE_THRESHOLD 0.15
+RUPTURE_RES     mobile 0.62 / desktop 0.80
+SWIPE_FB_RES    mobile 0.60 / desktop 0.78
 FULLSCREEN      manual FS button inside runtime UI
 UI_DEFAULT      HIDDEN
 AUDIO           20220302 - sarabande.mp3
@@ -39,82 +41,127 @@ Canonical visual defaults:
 ?fps=30&speed=S2&post=1&fx=HC,GS,FB,ST,GL&mode=photo-double-blend&crop=10-80
 ```
 
+## v1.0.27 — memory overlay enters POST + touch burst/lull timing
+
+v1.0.27 keeps the v1.0.26 memory PRE-FX lock, but changes how the memory overlay and touch fracture are presented.
+
+### Memory pipeline
+
+The active memory pipeline is now:
+
+```text
+hold-start archive entry / resident p5.Image
+  -> 1000 ms activation
+  -> fixed centered 1x cover memory source
+  -> normal preset composition/random crop/PRE FX remain stopped
+  -> touch rupture
+  -> optional swipe feedback
+  -> full-resolution memory composite buffer
+       -> local semi-transparent black readability panel
+       -> original-aspect-ratio thumbnail (~98% opacity)
+       -> MEMORY NNN
+       -> memory text
+  -> current ordered POST COMMON FX
+  -> vignette / waveform
+```
+
+Important consequence: the thumbnail and memory text are now part of the p5 canvas **before POST**, so they receive the currently enabled POST chain. With current defaults that means `HC -> GS -> FB -> ST -> GL` affects the memory overlay as well as the main recalled image.
+
+The ordinary touch rule still bypasses POST COMMON FX outside recall. Memory recall is an intentional exception because the overlay itself is meant to belong to the processed artwork surface.
+
+The visible DOM recall layer from v1.0.26 is no longer used. `memory-recall-v1027.js` keeps the DOM node only as an aria-live mirror and exports the memory state to the visual engine.
+
+### Readability
+
+v1.0.26 placed transparent text directly over the recalled image, which could become unreadable on bright/non-black backgrounds.
+
+v1.0.27 draws a local dark panel behind the thumbnail and text:
+
+```text
+full-screen black plate   NO
+local panel               black, alpha ~126/255 before POST
+thumbnail                 original aspect ratio, alpha ~250/255
+text                      bright serif + dark canvas shadow
+POST                      applies after panel/thumbnail/text composition
+```
+
+This improves local contrast while preserving the recalled image across the rest of the frame.
+
+### Touch rupture timing
+
+The previous rupture pattern refresh could read as evenly spaced `tick ... tick ... tick ...` motion.
+
+v1.0.27 adds a deliberately simple stochastic envelope rather than a complicated event script:
+
+```text
+BURST
+  ~105-315 ms depending on random value / gesture energy
+  inherited rupture pattern forced fresh on each allowed heavy render pass
+
+LULL
+  base ~220-780 ms
+  faster movement shortens lull by at most ~26%
+  previous fracture pattern is held instead of continuously reseeded
+```
+
+Because the existing mobile frame-skip remains active, rapid burst refresh does not mean the expensive pixel remap runs on every mobile render frame. The intended perceptual result is closer to `buzz-buzz-buzz ... quiet ... buzz ... buzz-buzz` than a uniformly faster glitch.
+
+### Touch-path resolution
+
+Touch-related low-resolution buffers were raised modestly:
+
+```text
+feedback/swipe mobile     0.52 -> 0.60
+feedback/swipe desktop    0.72 -> 0.78
+rupture mobile            0.50 -> 0.62
+rupture desktop           0.70 -> 0.80
+rupture frame skip mobile 2    unchanged
+rupture frame skip desk   1    unchanged
+```
+
+This is a calculated quality/performance tradeoff. v0.6.7 originally reduced rupture resolution and added the mobile every-second-frame path after full-resolution touch dropped some phones toward ~15 fps. If touch performance regresses, reduce the resolution scales first; keep burst timing unless it is independently shown to be expensive.
+
 ## v1.0.26 — memory PRE-FX composition lock
 
-The previous v1.0.25 implementation was conceptually wrong for the intended interaction because it merely placed a full-screen black DOM plate above the still-running p5 composition.
-
-v1.0.26 moves memory recall into the actual visual pipeline.
-
-### Intended / current behavior
+v1.0.26 moved recall from a black DOM cover into the actual p5 visual pipeline.
 
 ```text
 pointer down
   -> capture MediaManager current archive entry
-  -> retain that entry's resident p5.Image reference
+  -> retain resident p5.Image reference
 
 hold reaches 1000 ms
-  -> memory state becomes ACTIVE
-  -> normal preset composition is intercepted
-  -> random image-slot selection stops
-  -> random crop/layout evolution stops
-  -> PRE common FX stage is skipped
-  -> preset feedback is bypassed
-  -> base p5 buffer becomes one fixed centered 1x cover crop
-     of the captured memory image
-  -> old preset/swipe/global feedback buffers are cleared
+  -> memory ACTIVE
+  -> normal preset composition intercepted
+  -> random image-slot selection stopped
+  -> random crop/layout stopped
+  -> PRE common FX skipped
+  -> preset feedback bypassed
+  -> one fixed centered cover memory image becomes the base
+  -> temporal buffers cleared
 
-while finger remains down
-  -> base image stays unchanged
-  -> touch rupture acts on that fixed image
-  -> swipe feedback can act downstream on that fixed image
-  -> ordinary composition / virtual visual clock does not advance
+while held
+  -> fixed image remains unchanged
+  -> touch rupture / swipe operate downstream
+  -> virtual composition clock does not advance
 
-pointer release
-  -> memory state becomes INACTIVE
-  -> memory temporal buffers clear
-  -> normal composition is forced to refresh
-  -> scene image slots are reset
-  -> virtual wall-clock reference is reset to avoid a time jump
+release
+  -> memory inactive
+  -> temporal buffers clear
+  -> scene image slots reset
+  -> normal composition refreshes
+  -> virtual wall-clock reference resets to avoid a time jump
 ```
 
-### Thumbnail / text overlay
-
-The DOM layer is now only an overlay and no longer hides the canvas.
-
-```text
-background          transparent
-thumbnail           same archive image, original path, object-fit contain
-thumbnail size      small centered presentation
-text                MEMORY NNN + fragment below thumbnail
-canvas underneath   visible and running touch FX on the locked memory still
-```
-
-The p5 memory image and DOM thumbnail deliberately serve different roles:
-
-- **main canvas image:** fixed centered cover crop, then touch rupture / swipe feedback only;
-- **thumbnail:** unfiltered original-path image preserving the source aspect ratio.
-
-### Recall target semantics
-
-Recall still targets the MediaManager current archive entry captured at hold-start. In multi-image presets such as `PHOTO_DOUBLE_BLEND`, that is not necessarily the exact composited layer under the finger. Exact under-finger layer/hit resolution remains unresolved and is not part of v1.0.26.
-
-The captured resident `p5.Image` is retained by the memory state so background resident-pool rotation cannot invalidate the active recall image while the hold continues.
+The recall target is still the MediaManager current archive entry captured at hold-start. Exact under-finger composited-layer resolution in multi-image modes remains unresolved.
 
 ## v1.0.25 — superseded recall presentation
 
-v1.0.25 reduced the hold threshold from 2 seconds to 1 second and added the mapped raw image thumbnail. It used a full-screen black DOM recall plate that hid the still-running canvas.
-
-That black-plate behavior is superseded by v1.0.26. The useful pieces retained from v1.0.25 are:
-
-- 1000 ms hold threshold;
-- deterministic archive mapping;
-- raw original-path thumbnail;
-- `MEMORY NNN` + text presentation;
-- direct access to the actual global lexical `appStarted` / `mediaManager` bindings rather than assuming `window.*` properties.
+v1.0.25 reduced the hold threshold from 2 seconds to 1 second and added the mapped raw image thumbnail, but used a full-screen black DOM plate. That plate was superseded by v1.0.26 and the remaining visible DOM overlay was superseded by v1.0.27.
 
 ## v1.0.24 — memory prototype / mobile visibility / version-sync fix
 
-The first memory prototype used a 2-second hold and text-only recall. It established deterministic archive-key/index mapping and the placeholder memory-fragment pool.
+The first memory prototype used a 2-second hold and text-only recall. It established deterministic archive-key/index mapping and the placeholder fragment pool.
 
 `js/mobile-visibility-v1024.js` remains active on mobile:
 
@@ -124,20 +171,20 @@ visible again    -> resume only if auto-pause caused the pause
 user PAU state   -> remains paused across hide/show
 ```
 
-The v1.0.24 version-display incident established an important continuation rule: verify both `index.html` start-note/cache key and `config.js app.version` before diagnosing a deployment mismatch.
+The v1.0.24 version-display incident established a continuation rule: verify both `index.html` start-note/cache key and `config.js app.version` before diagnosing a deployment mismatch.
 
 ## Touch rupture
 
 - Touch palette is grayscale only: black / dark gray / mid gray / near-white.
-- Release tail is faster than the original interaction model and velocity-aware.
-- Horizontal rupture uses irregular slice heights instead of equal fixed bands.
+- Release tail is velocity-aware and short.
+- Horizontal rupture uses irregular slice heights.
 - Most slices are narrow; occasional broad fractures appear.
 - Only a subset of slices move.
-- Shift amount is usually small with occasional extreme displacement.
-- Patterns are held briefly rather than randomized every frame.
-- Touch rupture remains on reduced-resolution buffers and mobile frame-skip path.
-- Swipe-feedback activates while pressed above the current `0.15` threshold.
-- During memory recall, the rupture source is the fixed mapped memory still rather than the changing preset composition.
+- Shift is usually small with occasional extreme displacement.
+- v1.0.27 wraps pattern refresh in burst/lull timing rather than uniformly speeding it up.
+- Touch rupture remains reduced-resolution and retains the mobile every-second-frame heavy-pass safeguard.
+- Swipe-feedback activates while pressed above `0.15`.
+- During memory recall, the rupture source is the fixed mapped memory still.
 
 ## Global POST FX
 
@@ -156,12 +203,12 @@ HC -> GS -> FB -> ST -> GL
 Roles:
 
 - `FB` — intentionally strong, low-resolution temporal memory;
-- `GL` — sparse temporal slice glitch at rest, much more frequent/intense during touch;
-- `ST` — extremely lightweight film/projection luminance breathing/dips; no positional jitter;
-- `HC/GS/LS` — compatible CSS filters can be batched in the active performance layer;
+- `GL` — sparse temporal slice glitch at rest, much more frequent/intense during touch when POST is active;
+- `ST` — film/projection luminance breathing/dips only;
+- `HC/GS/LS` — compatible Canvas filters batched where possible;
 - `BL` — reduced mobile scratch when enabled.
 
-Normal touch rupture continues to bypass POST COMMON FX. Memory recall also bypasses ordinary preset composition/PRE/preset-feedback and keeps only touch-specific rupture/swipe processing downstream from the locked source.
+Outside recall, active touch rupture still causes the normal POST master path to be bypassed. During recall, v1.0.27 explicitly applies POST after the memory overlay is composited so the thumbnail/text can participate in the current POST aesthetics.
 
 ## Startup sequence
 
@@ -181,21 +228,21 @@ Normal touch rupture continues to bypass POST COMMON FX. Memory recall also bypa
 ```text
 main mobile composition   2x CSS resolution
 mobile long-edge cap      ~1440 effective after oversample
-feedback/swipe/rupture     lower-resolution surfaces
-GL scratch                 lower-resolution surface
+rupture                    0.62x mobile, every 2nd render frame
+swipe/feedback             0.60x mobile
+global FB                  reduced relative to feedback buffer
+GL scratch                 reduced-resolution surface
 ST                         overlay only
 analysis                   reduced resolution
 resident decoded images    bounded to 20
 background rotation        sequential decode
 ```
 
-Memory locking is cheap: the locked base image is drawn into the main composition buffer only when a new recall target activates or the visual engine rebuilds. The ordinary random preset composition does not continue behind it.
+Memory locking itself remains cheap. The new memory composite adds one full-resolution copy/overlay pass while recall is active, followed by the already-existing POST chain that is now intentionally enabled in recall.
 
 ## Scene image selection
 
-Outside memory recall, visible scene selection and resident-pool rotation remain intentionally different policies.
-
-Visible scene draws:
+Outside memory recall:
 
 ```text
 policy                  independent random with replacement
@@ -217,13 +264,13 @@ candidate policy        shuffle-bag
 runtime decode          sequential
 ```
 
-During memory recall, visible-scene selection is bypassed entirely and the captured memory image is used as the single source.
+During recall, visible-scene selection is bypassed entirely and the captured memory image is the single base source.
 
 ## Current conceptual direction / next-session context
 
 The artwork direction remains **recollection / fading memory**: important memories that have mostly dissolved but still retain an emotional residue or "scent".
 
-Possible future forms remain intentionally open:
+Possible future forms remain open:
 
 - interactive web book / hypertext work;
 - web game / puzzle exploration;
@@ -234,7 +281,7 @@ Possible future forms remain intentionally open:
 
 Design preference: avoid turning every scene into a conventional "find all buttons" game. Long stretches may contain no discoverable event; occasional hidden responses should make the viewer wonder whether a memory contains something deeper.
 
-A future explicit content model should likely separate memory data from rendering, for example:
+A future explicit content model should likely separate memory data from rendering:
 
 ```text
 memory id
@@ -248,34 +295,34 @@ optional scene/FX parameters
 
 ## Important files
 
-- `config.js` — canonical defaults / runtime version / POST state / crop / speed / swipe threshold;
+- `config.js` — canonical defaults / runtime version / touch resolution / POST state / crop / speed;
 - `index.html` — active script chain, start-note version and cache key;
-- `js/visual-engine-v1026.js` — active visual engine; memory PRE-FX composition lock / touch-only downstream path;
+- `js/visual-engine-v1027.js` — active visual engine; memory p5 overlay + memory POST + touch burst/lull envelope;
+- `js/visual-engine-v1026.js` — memory PRE-FX lock base;
 - `js/visual-engine-v1022.js` — ST / resize graphics disposal base;
 - `js/visual-engine-v1021.js` — GL and original ST implementation;
-- `js/visual-engine-v1020.js` — touch rupture refinement;
+- `js/visual-engine-v1020.js` — irregular touch rupture / release behavior;
 - `js/visual-engine-v1015.js` — performance-diet layer;
 - `js/visual-engine-v1012.js` — ordered global FB implementation;
-- `js/visual-engine-v1000.js` — swipe-feedback implementation / touch POST bypass;
+- `js/visual-engine-v1000.js` — swipe-feedback / ordinary touch POST bypass;
 - `js/visual-engine-v1007.js` — mobile 2x main rendering;
 - `js/interaction-v1020.js` — velocity-aware release tail;
-- `js/memory-recall-v1026.js` — 1-second archive capture, memory state bridge, raw thumbnail + text;
+- `js/memory-recall-v1027.js` — 1-second archive capture and engine state bridge; DOM aria mirror only;
 - `js/mobile-visibility-v1024.js` — mobile hidden/visible auto pause/resume;
 - `js/video-analyzer.js` — analysis buffer with resize disposal;
 - `sketch-v066.js` — startup / runtime pause hook / viewport rebuild;
 - `js/runtime-utility-controls-v105.js` — PAU / MUT / UI / FS;
-- `js/url-preset.js` — URL preset/share contract;
-- `style.css` — runtime control layout and transparent memory overlay presentation.
+- `js/url-preset.js` — URL preset/share contract.
 
-## Checkpoint — v1.0.26
+## Checkpoint — v1.0.27
 
-1. Current canonical preset: `30 FPS / S2 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
-2. Runtime version, start screen, and active visual engine are synchronized at `1.0.26`; `configRevision` is `39`.
-3. Memory hold threshold remains `1 second`.
-4. Memory activation replaces the normal PRE-FX/preset-composition result with one fixed mapped archive image on the p5 canvas; it no longer uses a black plate to hide a continuing composition.
-5. Random preset image selection, random crop/layout evolution, preset feedback, and the visual composition clock stop for the duration of active recall.
-6. Touch rupture and swipe feedback continue downstream from the locked image. Existing feedback histories are cleared on recall entry so prior random images do not contaminate the memory state.
-7. The original source image is separately displayed as a small transparent DOM thumbnail with `MEMORY NNN` and text underneath.
-8. On release, temporal buffers and scene-slot state reset and ordinary composition is forced to refresh cleanly.
-9. Exact under-finger composited-layer detection remains unresolved; hold-start MediaManager current archive entry is still the recall target.
-10. Mobile visibility pause/resume, swipe threshold `0.15`, resize/fullscreen disposal, mobile 2x main rendering, startup sequence, audio, and outside-recall random scene selection remain intact.
+1. Canonical preset remains `30 FPS / S2 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
+2. Runtime version and active visual engine are `1.0.27`; `configRevision` is `40`.
+3. Memory hold threshold remains `1000 ms` and PRE composition remains locked to one captured image during recall.
+4. Thumbnail + MEMORY id + text are now drawn inside p5 after touch rupture/swipe, on a local translucent black panel, and before current POST COMMON FX.
+5. Therefore the overlay and main memory result share the current POST chain; default is `HC -> GS -> FB -> ST -> GL`.
+6. DOM memory presentation is no longer visible; it is retained only as an aria-live mirror/state companion.
+7. Touch rupture now alternates stochastic rapid bursts with longer held/lull intervals rather than refreshing at a near-even cadence.
+8. Touch rupture resolution is now `0.62` mobile / `0.80` desktop; swipe/feedback is `0.60` mobile / `0.78` desktop. Mobile rupture frame-skip remains `2`.
+9. If mobile touch performance regresses, lower those resolution scales before changing the burst timing model.
+10. Exact under-finger composited-layer detection remains unresolved; hold-start MediaManager current archive entry is still the recall target.
