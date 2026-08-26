@@ -58,6 +58,7 @@ hold reaches 1000 ms
   -> random image-slot selection stops
   -> random crop/layout evolution stops
   -> PRE common FX stage is skipped
+  -> preset feedback is bypassed
   -> base p5 buffer becomes one fixed centered 1x cover crop
      of the captured memory image
   -> old preset/swipe/global feedback buffers are cleared
@@ -66,8 +67,6 @@ while finger remains down
   -> base image stays unchanged
   -> touch rupture acts on that fixed image
   -> swipe feedback can act downstream on that fixed image
-  -> preset-feedback, when the current preset has it, remains downstream
-     but starts from cleared history so previous random images do not leak in
   -> ordinary composition / virtual visual clock does not advance
 
 pointer release
@@ -92,7 +91,7 @@ canvas underneath   visible and running touch FX on the locked memory still
 
 The p5 memory image and DOM thumbnail deliberately serve different roles:
 
-- **main canvas image:** fixed centered cover crop, then existing touch-side visual processing;
+- **main canvas image:** fixed centered cover crop, then touch rupture / swipe feedback only;
 - **thumbnail:** unfiltered original-path image preserving the source aspect ratio.
 
 ### Recall target semantics
@@ -162,7 +161,7 @@ Roles:
 - `HC/GS/LS` — compatible CSS filters can be batched in the active performance layer;
 - `BL` — reduced mobile scratch when enabled.
 
-Normal touch rupture continues to bypass POST COMMON FX. Memory recall uses that same downstream touch behavior.
+Normal touch rupture continues to bypass POST COMMON FX. Memory recall also bypasses ordinary preset composition/PRE/preset-feedback and keeps only touch-specific rupture/swipe processing downstream from the locked source.
 
 ## Startup sequence
 
@@ -251,7 +250,7 @@ optional scene/FX parameters
 
 - `config.js` — canonical defaults / runtime version / POST state / crop / speed / swipe threshold;
 - `index.html` — active script chain, start-note version and cache key;
-- `js/visual-engine-v1026.js` — active visual engine; memory PRE-FX composition lock;
+- `js/visual-engine-v1026.js` — active visual engine; memory PRE-FX composition lock / touch-only downstream path;
 - `js/visual-engine-v1022.js` — ST / resize graphics disposal base;
 - `js/visual-engine-v1021.js` — GL and original ST implementation;
 - `js/visual-engine-v1020.js` — touch rupture refinement;
@@ -273,8 +272,8 @@ optional scene/FX parameters
 1. Current canonical preset: `30 FPS / S2 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
 2. Runtime version, start screen, and active visual engine are synchronized at `1.0.26`; `configRevision` is `39`.
 3. Memory hold threshold remains `1 second`.
-4. Memory activation now replaces the normal PRE-FX/preset-composition result with one fixed mapped archive image on the p5 canvas; it no longer uses a black plate to hide a continuing composition.
-5. Random preset image selection, random crop/layout evolution, and the visual composition clock stop for the duration of active recall.
+4. Memory activation replaces the normal PRE-FX/preset-composition result with one fixed mapped archive image on the p5 canvas; it no longer uses a black plate to hide a continuing composition.
+5. Random preset image selection, random crop/layout evolution, preset feedback, and the visual composition clock stop for the duration of active recall.
 6. Touch rupture and swipe feedback continue downstream from the locked image. Existing feedback histories are cleared on recall entry so prior random images do not contaminate the memory state.
 7. The original source image is separately displayed as a small transparent DOM thumbnail with `MEMORY NNN` and text underneath.
 8. On release, temporal buffers and scene-slot state reset and ordinary composition is forced to refresh cleanly.
