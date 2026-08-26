@@ -2,8 +2,8 @@
 
 DODREI is a mobile-first browser media-art work built with p5.js / JavaScript and hosted on GitHub Pages. The current visual language is based on fragmented photographic memory: rapidly changing crops, temporal feedback, grayscale rupture, sparse signal glitches, film-like luminance instability, touch interaction, and a long-press memory-recall prototype.
 
-Current artwork/runtime: **v1.0.25**  
-Current visual engine: **v1.0.22**  
+Current artwork/runtime: **v1.0.26**  
+Current visual engine: **v1.0.26**  
 Config schema: **1**  
 Current image archive: **96 images**  
 Resident decoded working set: **20 images**
@@ -50,7 +50,7 @@ Automatic mode advance is currently OFF. The preset array starts with `PHOTO_DOU
 
 Touch currently combines several behaviors:
 
-- visual playback slows to `0.50x` while held;
+- visual playback slows to `0.50x` while held before memory recall activates;
 - touch rupture uses grayscale palette quantization and irregular horizontal bands;
 - rupture release has a short velocity-aware decay rather than a long sticky tail;
 - swipe-feedback begins at normalized swipe speed `0.15`;
@@ -59,20 +59,37 @@ Touch currently combines several behaviors:
 
 The touch rupture / swipe / feedback paths remain deliberately lower resolution than the main mobile composition.
 
-## Memory recall prototype — v1.0.25
+## Memory recall — v1.0.26
 
-Holding the artwork for **1 second** opens a full-screen black recall plate. The archive image captured at hold-start is shown as a small, centered, **unfiltered original-image thumbnail**, with its `MEMORY 000`-style identifier and memory text underneath. Releasing fades the recall plate away.
+Holding the artwork for **1 second** activates memory recall.
 
-While the recall plate is visible, it sits above the p5 canvas, telemetry, and runtime controls, so the viewer sees only the mapped still image and its text rather than the continuing composited visual underneath.
+The recall state now changes the actual p5 composition instead of hiding it behind a black DOM plate:
 
-The current implementation is intentionally a prototype:
+```text
+hold-start           capture MediaManager archive entry + resident p5.Image
+1 second             activate memory state
+PRE-FX source        lock to that one archive image
+main image framing   fixed centered 1x cover crop
+preset image mixing  stopped
+random crop/layout   stopped
+composition clock    stopped while recall is active
+old feedback history cleared on entry
+TOUCH FX             continues downstream on the fixed still
+release              recall ends, temporal buffers clear, normal scene refreshes
+DOM overlay          transparent original-image thumbnail + MEMORY id + text
+```
+
+The main canvas therefore shows only the mapped memory image as its stable source while the finger remains down. Touch rupture and swipe feedback operate on that fixed image rather than on the normal changing blend/crop composition. If the active preset has its own downstream preset-feedback stage, that stage still runs, but its history is cleared at recall entry so previous random-scene imagery cannot leak into the memory state.
+
+Separately from the canvas source, the recall DOM overlay shows a smaller **unfiltered original-path thumbnail** of the same archive image with its `MEMORY 000`-style identifier and text underneath. The overlay itself is transparent; it no longer hides the processed canvas.
+
+The current implementation remains a prototype:
 
 - all 96 archive images are deterministically mapped by archive key/index;
 - 24 placeholder English memory fragments are reused through a stable hash mapping;
-- the image captured at hold-start remains the target even if the rolling resident pool changes during the hold;
-- the thumbnail uses that target archive entry's original `path`, not the POST-processed p5 canvas;
-- the memory module reads the orchestrator's global lexical `appStarted` / `mediaManager` bindings directly instead of incorrectly requiring `window.appStarted` / `window.mediaManager` properties;
-- this does **not yet identify the exact composited image/layer under the finger** in multi-image modes such as `PHOTO_DOUBLE_BLEND`.
+- the archive entry and resident p5.Image are captured at hold-start so resident-pool rotation cannot change the active memory source;
+- the main recalled source is a centered cover crop while the DOM thumbnail preserves the original aspect ratio;
+- this still does **not identify the exact composited image/layer under the finger** in multi-image modes such as `PHOTO_DOUBLE_BLEND`; recall targets the MediaManager current archive entry captured at hold-start.
 
 The likely next-stage architecture is to replace placeholder fragments with explicit memory records (`image -> text -> conditions -> links/state`) while keeping narrative/game logic separate from the visual engine.
 
@@ -110,7 +127,7 @@ The main mobile composition remains at `2.0x` CSS resolution, with the effective
 
 ## Scene / crop behavior
 
-Visible scene image selection is independent random selection **with replacement**. Immediate repeats and duplicates are allowed; there is no recent-image ban or scene-level shuffle bag.
+Outside memory recall, visible scene image selection is independent random selection **with replacement**. Immediate repeats and duplicates are allowed; there is no recent-image ban or scene-level shuffle bag.
 
 The MediaManager separately uses a shuffle bag only to rotate images into/out of the bounded resident working set.
 
@@ -140,7 +157,8 @@ left column:  CR / HC / DK / VG
 ## Important files
 
 - `config.js` — canonical runtime defaults and tunable parameters;
-- `js/visual-engine-v1022.js` — active visual engine, ST dimming and resize resource disposal;
+- `js/visual-engine-v1026.js` — active engine; memory PRE-FX composition lock and downstream touch FX handoff;
+- `js/visual-engine-v1022.js` — ST dimming and resize resource disposal;
 - `js/visual-engine-v1021.js` — sparse GL and original ST layer;
 - `js/visual-engine-v1020.js` — irregular touch rupture/release behavior;
 - `js/visual-engine-v1015.js` — mobile performance-diet layer;
@@ -148,7 +166,7 @@ left column:  CR / HC / DK / VG
 - `js/visual-engine-v1000.js` — swipe feedback and touch POST bypass behavior;
 - `js/interaction-v1020.js` — faster velocity-aware touch release tail;
 - `js/mobile-visibility-v1024.js` — mobile background pause/resume;
-- `js/memory-recall-v1025.js` — 1-second recall plate / raw thumbnail / memory text;
+- `js/memory-recall-v1026.js` — 1-second archive capture, engine state bridge, raw thumbnail + text overlay;
 - `sketch-v066.js` — application orchestration, startup and viewport rebuild;
 - `js/runtime-utility-controls-v105.js` — PAU / MUT / UI / FS;
 - `js/url-preset.js` — URL presets/share links;
