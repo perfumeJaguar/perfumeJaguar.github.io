@@ -302,3 +302,5 @@ optional scene/FX parameters
 8. MEMORY id/body copy fade in over ~520 ms and remain before POST, so current POST FX can glitch/feedback the text.
 9. Fragment pool is now 64 mixed entries rather than 24 uniformly literary placeholders.
 10. Exact under-finger composited-layer detection remains unresolved.
+
+Deployment note: GitHub Pages deployment retriggered on 2026-08-27 after the previous v1.0.28 run was cancelled; no runtime code changed in this retrigger commit.
