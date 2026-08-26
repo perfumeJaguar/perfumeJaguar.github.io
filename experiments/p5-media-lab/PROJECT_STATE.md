@@ -1,8 +1,8 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-26  
-Current artwork/runtime version: `1.0.19`  
-Current visual engine version: `1.0.15`  
+Current artwork/runtime version: `1.0.22`  
+Current visual engine version: `1.0.22`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
 Path: `experiments/p5-media-lab/`
@@ -13,14 +13,16 @@ PHOTO ONLY. Automatic mode advance is OFF.
 
 ```text
 BASE_FPS        30
-VIS_SPEED       S2 / 0.50x
+VIS_SPEED       S1 / 0.25x
 START_MODE      PHOTO_DOUBLE_BLEND / TWIN_EXPOSURE//NULL
 MODE_ORDER      DOUBLE_BLEND first
 CROP_MIN        1.0x
 CROP_MAX        8.0x
 POST            ON
-POST_CHAIN      HC -> GS -> FB
+POST_CHAIN      HC -> GS -> FB -> ST -> GL
 POST_FB         ON
+POST_ST         ON
+POST_GL         ON
 TOUCH_PLAYBACK  0.50x while held
 FULLSCREEN      manual FS button inside runtime UI
 UI_DEFAULT      HIDDEN
@@ -30,35 +32,58 @@ AUDIO           20220302 - sarabande.mp3
 Canonical visual defaults:
 
 ```text
-?fps=30&speed=S2&post=1&fx=HC,GS,FB&mode=photo-double-blend&crop=10-80
+?fps=30&speed=S1&post=1&fx=HC,GS,FB,ST,GL&mode=photo-double-blend&crop=10-80
 ```
 
-## v1.0.19 — final canonical default correction
+## v1.0.22 — film dimming + resize stability
 
-The requested canonical preset is now:
+### ST
+
+`ST` is film/projection-style luminance instability only. Positional jitter was removed.
 
 ```text
-FPS       30
-SPEED     S2 / 0.50x
-POST      ON
-FX ORDER  HC -> GS -> FB
-MODE      PHOTO_DOUBLE_BLEND
-CROP      1.0x .. 8.0x
+normal dim plateaus   ~0–2.2%
+rare short dips       ~4.5–7.5%
+implementation        translucent black overlay only
 ```
 
-This replaces the mistaken temporary 15 FPS default from v1.0.18. Valid URL parameters still override these defaults.
+### Resize / fullscreen stability
 
-## Recent retained behavior
+A concrete resource-retention bug was identified in the inherited resize path: older visual-engine layers recreated multiple `p5.Graphics` surfaces without first removing the previous instances. The analyzer did the same with its analysis buffer. Repeated window/fullscreen changes could therefore leave stale graphics/GPU canvas resources behind and cause progressive slowdown.
 
-- `PHOTO_DOUBLE_BLEND` is preset #1 and `modeControl.startIndex = 0`.
-- Global POST `FB` is intentionally strong: retain `96`, scale `0.992`, current-history alpha `236`.
-- Mobile main composition remains 2x CSS resolution.
-- Mobile BL uses a reduced scratch surface when enabled, but BL is not part of the current default chain.
-- Global FB history remains at `0.60x` of the already-low preset-feedback buffer.
-- UI is hidden by default; the nearly invisible UI toggle remains accessible.
-- FS sits inside the runtime UI and hides with it.
-- Touch audio modulation is reduced from earlier versions.
-- Touch visual pipeline remains unchanged.
+Current mitigation while keeping runtime version `1.0.22`:
+
+```text
+active visual engine  disposes inherited Graphics surfaces before rebuild
+video analyzer        removes previous analysis buffer before rebuild
+resize debounce       320 ms
+fullscreen events     feed the same debounced viewport rebuild path
+```
+
+A fullscreen viewport can still legitimately cost more than a smaller window because the final render buffer may be larger, up to the existing long-edge caps. The resource accumulation itself should no longer persist across repeated resize/fullscreen cycles.
+
+## Touch rupture
+
+- Touch palette is grayscale only: black / dark gray / mid gray / near-white.
+- Release tail is faster than the older interaction model and is velocity-aware.
+- Irregular horizontal rupture bands use mostly narrow slices with occasional larger fractures.
+- Touch rupture remains on the existing low-resolution buffers and mobile frame-skip path.
+
+## Global POST FX
+
+Current ordered keys include:
+
+```text
+BW GS LS BL FB GL ST CR HC DK VG
+```
+
+Current startup chain:
+
+```text
+HC -> GS -> FB -> ST -> GL
+```
+
+`FB` remains intentionally strong and low-resolution temporal memory. `GL` is sparse temporal slice glitch at rest and becomes much more active during touch. `ST` is lightweight film-like dimming.
 
 ## Startup sequence
 
@@ -72,6 +97,18 @@ This replaces the mistaken temporary 15 FPS default from v1.0.18. Valid URL para
 6.4s   main visual at 20% brightness
 7.4s   main visual at 100% brightness
 ```
+
+## Mobile sharpness / performance
+
+```text
+main mobile composition   2x CSS resolution
+mobile long-edge cap      1440 effective after oversample
+feedback/swipe/rupture     lower-resolution surfaces
+GL scratch                 lower-resolution surface
+ST                         overlay only
+```
+
+HC/GS/LS consecutive Canvas filters are batched into one full-resolution pass. BL, when enabled, uses reduced mobile scratch rendering. Global FB history remains lower-resolution.
 
 ## Scene image selection
 
@@ -88,18 +125,22 @@ long non-repeat run     ALLOWED
 
 - `config.js` — canonical defaults / preset order / FX parameters;
 - `assets.js` — soundtrack;
-- `js/visual-engine-v1015.js` — active performance-diet layer;
+- `js/visual-engine-v1022.js` — active engine / ST / resize graphics disposal;
+- `js/visual-engine-v1021.js` — GL and original ST layer;
+- `js/visual-engine-v1020.js` — touch rupture refinement;
+- `js/visual-engine-v1015.js` — performance-diet layer;
 - `js/visual-engine-v1012.js` — ordered global FB implementation;
 - `js/visual-engine-v1007.js` — mobile 2x main rendering;
-- `sketch-v066.js` — startup/brightness timeline;
+- `js/video-analyzer.js` — analysis buffer with resize disposal;
+- `sketch-v066.js` — startup and debounced viewport rebuild;
 - `js/runtime-utility-controls-v105.js` — PAU / MUT / UI / FS;
 - `js/url-preset.js` — URL preset/share contract;
 - `index.html` — current page and cache key.
 
-## Checkpoint — v1.0.19
+## Checkpoint — v1.0.22
 
-1. Canonical FPS corrected from 15 to 30.
-2. Canonical FX chain is `HC -> GS -> FB` with POST enabled.
-3. Default mode remains `PHOTO_DOUBLE_BLEND` first.
-4. Default crop remains `1.0x .. 8.0x` (`crop=10-80`).
-5. Existing performance optimizations, startup timing, UI behavior, soundtrack, and touch behavior remain unchanged.
+1. Canonical preset is `30 FPS / S1 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
+2. Visible/runtime version remains `1.0.22` as requested.
+3. Resize/fullscreen rebuild now explicitly releases old visual and analysis Graphics resources.
+4. Viewport rebuild debounce increased to 320 ms and fullscreen changes share that debounce.
+5. Existing image quality caps, touch pipeline, startup sequence, UI behavior, and soundtrack remain unchanged.
