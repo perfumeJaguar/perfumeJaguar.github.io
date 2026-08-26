@@ -1,9 +1,7 @@
 /** DODREI — VISUAL ENGINE v1.0.22
- * ST now behaves like subtle film/projection light instability:
- * - no positional jitter and no scratch-buffer copy;
- * - mostly 0–2.2% dimming held in short, irregular plateaus;
- * - rare brief 4.5–7.5% light dips;
- * - implemented as a single translucent black overlay for negligible cost.
+ * ST behaves like subtle film/projection light instability.
+ * Resize stability patch: dispose inherited p5.Graphics surfaces before rebuild
+ * so fullscreen/window-size transitions do not accumulate stale GPU canvases.
  */
 class DodreiVisualEngineV1022 extends DodreiVisualEngineV1021 {
   constructor(config,telemetry){
@@ -13,15 +11,35 @@ class DodreiVisualEngineV1022 extends DodreiVisualEngineV1021 {
     this._stSerial=0;
   }
 
+  rebuild(w,h){
+    // Older engine layers recreate several Graphics surfaces without disposing
+    // the previous instances first. Because resize/fullscreen can call rebuild
+    // repeatedly, explicitly release every active surface at the top of the
+    // final engine before letting the inherited chain allocate the new set.
+    const keys=[
+      "buffer","crushBuffer","ruptureBuffer","ruptureScratch",
+      "feedback","feedbackScratch","swipeFeedback","swipeScratch",
+      "mosaicSample","glowBuffer","postCommonBuffer","postCommonScratch",
+      "globalFeedback","globalFeedbackScratch","postBlurScratch","postGlitchScratch"
+    ];
+    const seen=new Set();
+    for(const key of keys){
+      const g=this[key];
+      if(g&&!seen.has(g)){
+        seen.add(g);
+        try{g.remove?.();}catch(_){}
+      }
+      this[key]=null;
+    }
+    super.rebuild(w,h);
+    this._postCommonDirty=true;
+  }
+
   _instability(out){
     const now=millis();
     if(now>=this._stUntil){
       const serial=++this._stSerial;
       const r=this.rand01(serial*71+Math.floor(now/173));
-
-      // Most of the time the projector is almost stable. A small plateau is
-      // held rather than re-randomized every frame so it reads as light drift,
-      // not digital noise.
       if(r>0.94){
         this._stDim=0.045+this.rand01(serial*83)*0.030;
         this._stUntil=now+70+this.rand01(serial*89)*170;
@@ -30,7 +48,6 @@ class DodreiVisualEngineV1022 extends DodreiVisualEngineV1021 {
         this._stUntil=now+140+this.rand01(serial*101)*520;
       }
     }
-
     if(this._stDim<=0.001)return;
     out.push();
     out.noStroke();
@@ -43,6 +60,7 @@ class DodreiVisualEngineV1022 extends DodreiVisualEngineV1021 {
     const s=super.snapshot();
     s.engineVersion="1.0.22";
     s.instabilityStyle="FILM_LIGHT_DIM";
+    s.resizeGraphicsDisposal=true;
     return s;
   }
 }
