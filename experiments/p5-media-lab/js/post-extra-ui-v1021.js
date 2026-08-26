@@ -1,0 +1,6 @@
+/** DODREI — GL / ST POST FX CONTROLS v1.0.21 */
+window.addEventListener("DOMContentLoaded",()=>{
+ const config=window.DODREI_CONFIG||window.P5LAB_CONFIG||{},postFx=config.visual?.postCommonFx||(config.visual.postCommonFx={}),master=document.getElementById("post-fx-master-button");
+ const defs=[{id:"post-fx-glitch-button",key:"glitch",label:"GL",name:"Sparse glitch"},{id:"post-fx-instability-button",key:"instability",label:"ST",name:"Signal instability"}];
+ for(const d of defs){const b=document.getElementById(d.id);if(!b)continue;const refresh=()=>{const on=!!postFx[d.key],locked=postFx.masterEnabled===false;b.textContent=d.label;b.setAttribute("aria-pressed",on?"true":"false");b.title=`${d.name}: ${on?"ON":"OFF"}`;b.disabled=locked;};b.addEventListener("pointerdown",e=>e.stopPropagation());b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();if(postFx.masterEnabled===false)return;const engine=window.DODREI_VISUAL_ENGINE;if(engine?.setPostCommonFx)engine.setPostCommonFx(d.key,!postFx[d.key]);else{const next=!postFx[d.key];postFx[d.key]=next;const order=Array.isArray(postFx.order)?postFx.order.filter(k=>k!==d.key):[];if(next)order.push(d.key);postFx.order=order;}refresh();});master?.addEventListener("click",()=>setTimeout(refresh,0));refresh();}
+});
