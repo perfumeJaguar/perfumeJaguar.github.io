@@ -35,7 +35,7 @@
   const el=()=>document.getElementById('memory-recall');
   function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
   function entry(){
-    if(!window.mediaManager||!mediaManager.archiveEntries||!mediaManager.archiveEntries.length)return null;
+    if(typeof mediaManager==='undefined'||!mediaManager||!mediaManager.archiveEntries||!mediaManager.archiveEntries.length)return null;
     const idx=Number(mediaManager.currentImageIndex);
     return mediaManager.archiveEntries[idx]||null;
   }
@@ -65,12 +65,12 @@
     visible=true;
   }
   function begin(){
-    if(!window.appStarted||window.DODREI_RUNTIME_PAUSED)return;
+    if(typeof appStarted==='undefined'||!appStarted||window.DODREI_RUNTIME_PAUSED)return;
     const e=entry();if(!e)return;
     heldKey=e.key;
     clearTimeout(timer);
     timer=setTimeout(()=>{
-      if(!heldKey)return;
+      if(!heldKey||typeof mediaManager==='undefined'||!mediaManager)return;
       const target=mediaManager.archiveEntries.find(x=>x.key===heldKey);if(!target)return;
       show(target);
     },HOLD_MS);
