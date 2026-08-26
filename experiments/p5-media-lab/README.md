@@ -1,8 +1,8 @@
 # DODREI
 
-DODREI is a mobile-first browser media-art work built with p5.js / JavaScript and hosted on GitHub Pages. The current visual language is based on fragmented photographic memory: rapidly changing crops, temporal feedback, grayscale rupture, sparse signal glitches, film-like luminance instability, touch interaction, and a new long-press memory-recall prototype.
+DODREI is a mobile-first browser media-art work built with p5.js / JavaScript and hosted on GitHub Pages. The current visual language is based on fragmented photographic memory: rapidly changing crops, temporal feedback, grayscale rupture, sparse signal glitches, film-like luminance instability, touch interaction, and a long-press memory-recall prototype.
 
-Current artwork/runtime: **v1.0.24**  
+Current artwork/runtime: **v1.0.25**  
 Current visual engine: **v1.0.22**  
 Config schema: **1**  
 Current image archive: **96 images**  
@@ -59,22 +59,26 @@ Touch currently combines several behaviors:
 
 The touch rupture / swipe / feedback paths remain deliberately lower resolution than the main mobile composition.
 
-## Memory recall prototype — v1.0.24
+## Memory recall prototype — v1.0.25
 
-Holding the artwork for **2 seconds** reveals a centered memory fragment and a `MEMORY 000`-style archive identifier. Releasing fades it away.
+Holding the artwork for **1 second** opens a full-screen black recall plate. The archive image captured at hold-start is shown as a small, centered, **unfiltered original-image thumbnail**, with its `MEMORY 000`-style identifier and memory text underneath. Releasing fades the recall plate away.
+
+While the recall plate is visible, it sits above the p5 canvas, telemetry, and runtime controls, so the viewer sees only the mapped still image and its text rather than the continuing composited visual underneath.
 
 The current implementation is intentionally a prototype:
 
 - all 96 archive images are deterministically mapped by archive key/index;
 - 24 placeholder English memory fragments are reused through a stable hash mapping;
 - the image captured at hold-start remains the target even if the rolling resident pool changes during the hold;
+- the thumbnail uses that target archive entry's original `path`, not the POST-processed p5 canvas;
+- the memory module reads the orchestrator's global lexical `appStarted` / `mediaManager` bindings directly instead of incorrectly requiring `window.appStarted` / `window.mediaManager` properties;
 - this does **not yet identify the exact composited image/layer under the finger** in multi-image modes such as `PHOTO_DOUBLE_BLEND`.
 
 The likely next-stage architecture is to replace placeholder fragments with explicit memory records (`image -> text -> conditions -> links/state`) while keeping narrative/game logic separate from the visual engine.
 
 ## Mobile visibility behavior
 
-On mobile devices only, `visibilitychange` now pauses visual looping and audio when the page becomes hidden (home screen, app switch, other tab) and automatically resumes when the page becomes visible again **only if that module caused the pause**. A user-initiated `PAU` state remains paused.
+On mobile devices only, `visibilitychange` pauses visual looping and audio when the page becomes hidden (home screen, app switch, other tab) and automatically resumes when the page becomes visible again **only if that module caused the pause**. A user-initiated `PAU` state remains paused.
 
 Desktop behavior is unchanged.
 
@@ -144,7 +148,7 @@ left column:  CR / HC / DK / VG
 - `js/visual-engine-v1000.js` — swipe feedback and touch POST bypass behavior;
 - `js/interaction-v1020.js` — faster velocity-aware touch release tail;
 - `js/mobile-visibility-v1024.js` — mobile background pause/resume;
-- `js/memory-recall-v1024.js` — 2-second long-press recall prototype;
+- `js/memory-recall-v1025.js` — 1-second recall plate / raw thumbnail / memory text;
 - `sketch-v066.js` — application orchestration, startup and viewport rebuild;
 - `js/runtime-utility-controls-v105.js` — PAU / MUT / UI / FS;
 - `js/url-preset.js` — URL presets/share links;
