@@ -1,7 +1,7 @@
 # PROJECT_STATE — DODREI
 
 Last updated: 2026-08-26  
-Current artwork/runtime version: `1.0.24`  
+Current artwork/runtime version: `1.0.25`  
 Current visual engine version: `1.0.22`  
 Current config schema: `1`  
 Repository: `perfumeJaguar/perfumeJaguar.github.io`  
@@ -38,13 +38,40 @@ Canonical visual defaults:
 ?fps=30&speed=S2&post=1&fx=HC,GS,FB,ST,GL&mode=photo-double-blend&crop=10-80
 ```
 
+## v1.0.25 — one-second memory plate + mapped still thumbnail
+
+The memory-recall prototype was refined without changing the active visual engine subclass.
+
+Current behavior:
+
+```text
+hold threshold      1000 ms
+archive mapping     deterministic by archive image key/index
+archive size        96 images
+placeholder pool    24 English memory fragments
+recall background   full-screen black plate above canvas/UI
+image presentation  centered unfiltered original-path thumbnail
+text placement      MEMORY id + fragment below thumbnail
+release behavior    recall plate fades away
+```
+
+The recall target is still the MediaManager's current archive entry captured at hold-start. When recall appears, `memory-recall-v1025.js` uses the target entry's original `path` for the thumbnail, while the full-screen black recall plate hides the continuing p5 composition, telemetry, and runtime controls underneath. This makes the recall state show only the mapped still image and its text rather than a changing processed composite.
+
+A binding bug in the original prototype was also removed. `appStarted` and `mediaManager` are top-level global lexical bindings declared with `let` in `sketch-v066.js`; they are not guaranteed to exist as `window.appStarted` / `window.mediaManager` properties. The v1.0.25 module checks and reads the lexical bindings directly.
+
+Important limitation remains:
+
+- `PHOTO_DOUBLE_BLEND` and other multi-image modes can display several archive images at once.
+- Recall still captures the MediaManager's current archive entry at hold-start.
+- It does **not** yet resolve which composited image/layer is visually under the finger.
+
 ## v1.0.24 — memory recall / mobile visibility / version-sync fix
 
 ### Memory recall prototype
 
-A 2-second long press now reveals a centered memory fragment.
+A 2-second long press revealed a centered memory fragment.
 
-Current behavior:
+Previous v1.0.24 behavior:
 
 ```text
 hold threshold      2000 ms
@@ -55,13 +82,9 @@ release behavior    overlay fades away
 identifier          MEMORY 001-style archive number
 ```
 
-Important implementation limitation:
+This prototype established the current memory direction before v1.0.25 added mapped-image presentation.
 
-- `PHOTO_DOUBLE_BLEND` and other multi-image modes can display several archive images at once.
-- The current recall prototype captures the MediaManager's current archive entry at hold-start.
-- It does **not** yet resolve which composited image/layer is visually under the finger.
-
-This prototype is meant to test the broader `memory` direction before committing to a full narrative/state system. A future explicit content model should likely separate memory data from rendering, for example:
+A future explicit content model should likely separate memory data from rendering, for example:
 
 ```text
 memory id
@@ -97,7 +120,7 @@ app.version = 1.0.23
 
 This caused telemetry/runtime presentation to keep showing `1.0.23` on multiple devices even though `index.html` and the deployed artifact already contained v1.0.24/memory-recall code.
 
-The fix synchronizes `config.js` to `app.version = 1.0.24` and increments `configRevision` to `37`. This incident is an important continuation rule: **verify both `index.html` start-note/cache key and `config.js app.version`; do not infer deployment failure from one displayed version string.**
+The fix synchronized `config.js` to `app.version = 1.0.24` and incremented `configRevision` to `37`. Continuation rule: **verify both `index.html` start-note/cache key and `config.js app.version`; do not infer deployment failure from one displayed version string.**
 
 ### Swipe threshold
 
@@ -256,7 +279,7 @@ Design preference for future interaction: avoid turning every scene into a conve
 
 ## Important files
 
-- `config.js` — canonical defaults / POST state / crop / speed / swipe threshold;
+- `config.js` — canonical defaults / POST state / crop / speed / swipe threshold / runtime version;
 - `index.html` — active script chain, start-note version and cache key;
 - `js/visual-engine-v1022.js` — active engine / ST / resize graphics disposal;
 - `js/visual-engine-v1021.js` — GL and original ST implementation;
@@ -266,7 +289,7 @@ Design preference for future interaction: avoid turning every scene into a conve
 - `js/visual-engine-v1000.js` — swipe-feedback implementation / touch POST bypass;
 - `js/visual-engine-v1007.js` — mobile 2x main rendering;
 - `js/interaction-v1020.js` — velocity-aware release tail;
-- `js/memory-recall-v1024.js` — long-press memory prototype;
+- `js/memory-recall-v1025.js` — 1-second memory recall, mapped raw thumbnail, full-screen recall plate;
 - `js/mobile-visibility-v1024.js` — mobile hidden/visible auto pause/resume;
 - `js/video-analyzer.js` — analysis buffer with resize disposal;
 - `sketch-v066.js` — startup / runtime pause hook / viewport rebuild;
@@ -274,13 +297,14 @@ Design preference for future interaction: avoid turning every scene into a conve
 - `js/url-preset.js` — URL preset/share contract;
 - `style.css` — runtime control layout and memory-recall presentation.
 
-## Checkpoint — v1.0.24
+## Checkpoint — v1.0.25
 
 1. Current canonical preset: `30 FPS / S2 / HC -> GS -> FB -> ST -> GL / PHOTO_DOUBLE_BLEND / crop 1.0x..8.0x`.
-2. Runtime version and start screen are synchronized at `1.0.24`; active visual-engine class remains `1.0.22` because v1.0.23–24 are interaction/config/UI/prototype layers rather than a new engine subclass.
-3. Swipe threshold is now `0.15`; sustained feedback damping from v1.0.23 remains.
-4. Current image archive has 96 files; decoded resident pool remains 20.
-5. 2-second memory recall prototype is active and currently uses deterministic placeholder-text mapping, not exact under-finger composited-layer selection.
-6. Mobile background visibility now auto-pauses and returns to playback only when appropriate; user PAU remains authoritative.
-7. Resize/fullscreen resource disposal, mobile 2x main rendering, startup sequence, audio, and open-random visible scene selection remain intact.
-8. `README.md`, `ARCHITECTURE.md`, `CONFIG_GUIDE.md`, and this file were refreshed at session end so the next session should start from repository docs rather than conversational reconstruction.
+2. Runtime version and start screen are synchronized at `1.0.25`; `configRevision` is `38`. Active visual-engine class remains `1.0.22` because v1.0.23–25 are interaction/config/UI/prototype layers rather than a new engine subclass.
+3. Memory recall threshold is now `1 second`.
+4. The hold-start archive entry is displayed via its original image path as a centered thumbnail on a full-screen black recall plate, with `MEMORY NNN` and text underneath.
+5. The recall plate sits above the p5 canvas, telemetry, and runtime controls, so continuing visual processing is hidden during recall.
+6. Memory binding checks now use the actual global lexical `appStarted` / `mediaManager` bindings instead of assuming `window.*` properties.
+7. Exact under-finger composited-layer detection is still unresolved in multi-image modes.
+8. Mobile visibility pause/resume, swipe threshold `0.15`, resize/fullscreen resource disposal, mobile 2x main rendering, startup sequence, audio, and open-random visible scene selection remain intact.
+9. `README.md` and this file were refreshed for v1.0.25; continuation should still start from repository docs and then verify `config.js`, `index.html`, and active versioned modules.
