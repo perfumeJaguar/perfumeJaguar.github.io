@@ -63,7 +63,7 @@ The touch rupture / swipe / feedback paths remain deliberately lower resolution 
 
 Holding the artwork for **1 second** activates memory recall.
 
-The recall state now changes the actual p5 composition instead of hiding it behind a black DOM plate:
+The recall state changes the actual p5 composition instead of hiding it behind a black DOM plate:
 
 ```text
 hold-start           capture MediaManager archive entry + resident p5.Image
@@ -73,13 +73,14 @@ main image framing   fixed centered 1x cover crop
 preset image mixing  stopped
 random crop/layout   stopped
 composition clock    stopped while recall is active
+preset feedback      bypassed while recall is active
 old feedback history cleared on entry
-TOUCH FX             continues downstream on the fixed still
+TOUCH FX             touch rupture + swipe feedback continue on the fixed still
 release              recall ends, temporal buffers clear, normal scene refreshes
 DOM overlay          transparent original-image thumbnail + MEMORY id + text
 ```
 
-The main canvas therefore shows only the mapped memory image as its stable source while the finger remains down. Touch rupture and swipe feedback operate on that fixed image rather than on the normal changing blend/crop composition. If the active preset has its own downstream preset-feedback stage, that stage still runs, but its history is cleared at recall entry so previous random-scene imagery cannot leak into the memory state.
+The main canvas therefore shows only the mapped memory image as its stable source while the finger remains down. Ordinary preset composition, PRE common FX, preset feedback, and the random crop/image-selection clock are bypassed. Touch rupture and swipe feedback operate on the fixed image instead.
 
 Separately from the canvas source, the recall DOM overlay shows a smaller **unfiltered original-path thumbnail** of the same archive image with its `MEMORY 000`-style identifier and text underneath. The overlay itself is transparent; it no longer hides the processed canvas.
 
@@ -157,7 +158,7 @@ left column:  CR / HC / DK / VG
 ## Important files
 
 - `config.js` — canonical runtime defaults and tunable parameters;
-- `js/visual-engine-v1026.js` — active engine; memory PRE-FX composition lock and downstream touch FX handoff;
+- `js/visual-engine-v1026.js` — active engine; memory PRE-FX composition lock and touch-only downstream path;
 - `js/visual-engine-v1022.js` — ST dimming and resize resource disposal;
 - `js/visual-engine-v1021.js` — sparse GL and original ST layer;
 - `js/visual-engine-v1020.js` — irregular touch rupture/release behavior;
